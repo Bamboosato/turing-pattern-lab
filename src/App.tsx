@@ -18,7 +18,7 @@ import {
 import type { ReactionDiffusionParams, SeedMode } from './simulation/types';
 
 const APP_CANVAS_VIEW_QUERY = '(max-width: 820px), (pointer: coarse)';
-const FINE_TUNE_STEP = 0.001;
+const FINE_TUNE_STEP = 0.0001;
 
 function shouldUseAppCanvasView() {
   return window.matchMedia(APP_CANVAS_VIEW_QUERY).matches;
@@ -320,7 +320,7 @@ function App() {
               type="range"
               min="0.012"
               max="0.07"
-              step="0.0005"
+              step="0.0001"
               value={params.feed}
               onChange={(event) => handleFeedChange(Number(event.target.value))}
               aria-label="Feed rate"
@@ -330,18 +330,18 @@ function App() {
                 type="button"
                 onClick={() => handleFeedAdjust(-FINE_TUNE_STEP)}
                 disabled={params.feed <= FEED_RANGE.min}
-                aria-label="Decrease feed by 0.001"
+                aria-label="Decrease feed by 0.0001"
               >
                 -
               </button>
               <span className="fine-tune-step" aria-hidden="true">
-                0.001
+                0.0001
               </span>
               <button
                 type="button"
                 onClick={() => handleFeedAdjust(FINE_TUNE_STEP)}
                 disabled={params.feed >= FEED_RANGE.max}
-                aria-label="Increase feed by 0.001"
+                aria-label="Increase feed by 0.0001"
               >
                 +
               </button>
@@ -356,7 +356,7 @@ function App() {
               type="range"
               min="0.045"
               max="0.072"
-              step="0.0005"
+              step="0.0001"
               value={params.kill}
               onChange={(event) => handleKillChange(Number(event.target.value))}
               aria-label="Kill rate"
@@ -366,18 +366,18 @@ function App() {
                 type="button"
                 onClick={() => handleKillAdjust(-FINE_TUNE_STEP)}
                 disabled={params.kill <= KILL_RANGE.min}
-                aria-label="Decrease kill by 0.001"
+                aria-label="Decrease kill by 0.0001"
               >
                 -
               </button>
               <span className="fine-tune-step" aria-hidden="true">
-                0.001
+                0.0001
               </span>
               <button
                 type="button"
                 onClick={() => handleKillAdjust(FINE_TUNE_STEP)}
                 disabled={params.kill >= KILL_RANGE.max}
-                aria-label="Increase kill by 0.001"
+                aria-label="Increase kill by 0.0001"
               >
                 +
               </button>
