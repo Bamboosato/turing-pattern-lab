@@ -260,6 +260,28 @@ select {
   accent-color: var(--accent);
 }
 
+.fine-tune-controls {
+  display: grid;
+  grid-template-columns: 44px minmax(3.5rem, 1fr) 44px;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.fine-tune-controls button {
+  width: 44px;
+  min-height: 36px;
+  padding: 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.fine-tune-step {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: center;
+}
+
 .preset-description {
   min-height: 4.8rem;
   margin: 0;

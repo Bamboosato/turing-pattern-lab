@@ -9,7 +9,7 @@ import {
   saveUserPresets,
   type UserPreset,
 } from './presets/userPresets';
-import { generateRandomParams, withFeedKill } from './simulation/random';
+import { FEED_RANGE, KILL_RANGE, generateRandomParams, withFeedKill } from './simulation/random';
 import {
   getFullscreenSimulationSize,
   NORMAL_SIMULATION_SIZE,
@@ -18,6 +18,7 @@ import {
 import type { ReactionDiffusionParams, SeedMode } from './simulation/types';
 
 const APP_CANVAS_VIEW_QUERY = '(max-width: 820px), (pointer: coarse)';
+const FINE_TUNE_STEP = 0.001;
 
 function shouldUseAppCanvasView() {
   return window.matchMedia(APP_CANVAS_VIEW_QUERY).matches;
@@ -131,8 +132,18 @@ function App() {
     setSelectedPresetId(null);
   };
 
+  const handleFeedAdjust = (delta: number) => {
+    setParams((current) => withFeedKill(current, current.feed + delta, current.kill));
+    setSelectedPresetId(null);
+  };
+
   const handleKillChange = (kill: number) => {
     setParams((current) => withFeedKill(current, current.feed, kill));
+    setSelectedPresetId(null);
+  };
+
+  const handleKillAdjust = (delta: number) => {
+    setParams((current) => withFeedKill(current, current.feed, current.kill + delta));
     setSelectedPresetId(null);
   };
 
@@ -314,6 +325,27 @@ function App() {
               onChange={(event) => handleFeedChange(Number(event.target.value))}
               aria-label="Feed rate"
             />
+            <div className="fine-tune-controls" aria-label="Feed fine tuning">
+              <button
+                type="button"
+                onClick={() => handleFeedAdjust(-FINE_TUNE_STEP)}
+                disabled={params.feed <= FEED_RANGE.min}
+                aria-label="Decrease feed by 0.001"
+              >
+                -
+              </button>
+              <span className="fine-tune-step" aria-hidden="true">
+                0.001
+              </span>
+              <button
+                type="button"
+                onClick={() => handleFeedAdjust(FINE_TUNE_STEP)}
+                disabled={params.feed >= FEED_RANGE.max}
+                aria-label="Increase feed by 0.001"
+              >
+                +
+              </button>
+            </div>
           </label>
 
           <label className="field range-field">
@@ -329,6 +361,27 @@ function App() {
               onChange={(event) => handleKillChange(Number(event.target.value))}
               aria-label="Kill rate"
             />
+            <div className="fine-tune-controls" aria-label="Kill fine tuning">
+              <button
+                type="button"
+                onClick={() => handleKillAdjust(-FINE_TUNE_STEP)}
+                disabled={params.kill <= KILL_RANGE.min}
+                aria-label="Decrease kill by 0.001"
+              >
+                -
+              </button>
+              <span className="fine-tune-step" aria-hidden="true">
+                0.001
+              </span>
+              <button
+                type="button"
+                onClick={() => handleKillAdjust(FINE_TUNE_STEP)}
+                disabled={params.kill >= KILL_RANGE.max}
+                aria-label="Increase kill by 0.001"
+              >
+                +
+              </button>
+            </div>
           </label>
 
           <div className="preset-actions">
