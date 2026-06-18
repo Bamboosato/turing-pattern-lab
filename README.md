@@ -21,6 +21,7 @@ Core features:
 - Random pattern generation
 - Pause and resume
 - PNG export
+- Tap and drag gesture injection on the Canvas
 - Responsive layout for desktop and mobile
 
 ## Tech Stack
@@ -52,7 +53,7 @@ npm run test
 
 ## Current MVP
 
-The current implementation includes a Gray-Scott Canvas simulation, five natural-pattern presets, local user preset saving, Feed/Kill sliders, random generation, pause/resume, PNG export, a responsive layout, and a short educational explanation.
+The current implementation includes a Gray-Scott Canvas simulation, five natural-pattern presets, local user preset saving, Feed/Kill sliders, random generation, pause/resume, PNG export, tap and drag gesture injection, a responsive layout, and a short educational explanation.
 
 ## Documentation
 
