@@ -16,6 +16,7 @@ Core features:
 
 - Real-time Turing pattern generation
 - Preset pattern selection
+- Save and delete local user presets
 - Feed and Kill parameter sliders
 - Random pattern generation
 - Pause and resume
@@ -51,7 +52,7 @@ npm run test
 
 ## Current MVP
 
-The current implementation includes a Gray-Scott Canvas simulation, five natural-pattern presets, Feed/Kill sliders, random generation, pause/resume, PNG export, a responsive layout, and a short educational explanation.
+The current implementation includes a Gray-Scott Canvas simulation, five natural-pattern presets, local user preset saving, Feed/Kill sliders, random generation, pause/resume, PNG export, a responsive layout, and a short educational explanation.
 
 ## Documentation
 

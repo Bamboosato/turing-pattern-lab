@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { SimulationCanvas } from './components/SimulationCanvas';
 import { patternPresets, defaultPreset } from './presets/presets';
+import {
+  createUserPreset,
+  getDefaultUserPresetName,
+  isUserPresetId,
+  loadUserPresets,
+  saveUserPresets,
+  type UserPreset,
+} from './presets/userPresets';
 import { generateRandomParams, withFeedKill } from './simulation/random';
 import {
   getFullscreenSimulationSize,
@@ -17,7 +25,8 @@ function shouldUseAppCanvasView() {
 
 function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [selectedPresetId, setSelectedPresetId] = useState(defaultPreset.id);
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(defaultPreset.id);
+  const [userPresets, setUserPresets] = useState<UserPreset[]>(() => loadUserPresets());
   const [params, setParams] = useState<ReactionDiffusionParams>(defaultPreset.params);
   const [seedMode, setSeedMode] = useState<SeedMode>(defaultPreset.seedMode);
   const [isPaused, setIsPaused] = useState(false);
@@ -27,9 +36,19 @@ function App() {
   const [simulationSize, setSimulationSize] = useState<SimulationSize>(NORMAL_SIMULATION_SIZE);
   const [resetKey, setResetKey] = useState(0);
 
+  const selectablePresets = useMemo(
+    () => [...patternPresets, ...userPresets],
+    [userPresets],
+  );
+
   const selectedPreset = useMemo(
-    () => patternPresets.find((preset) => preset.id === selectedPresetId),
-    [selectedPresetId],
+    () => selectablePresets.find((preset) => preset.id === selectedPresetId),
+    [selectablePresets, selectedPresetId],
+  );
+
+  const selectedUserPreset = useMemo(
+    () => userPresets.find((preset) => preset.id === selectedPresetId),
+    [selectedPresetId, userPresets],
   );
 
   useEffect(() => {
@@ -85,6 +104,10 @@ function App() {
     };
   }, [isCanvasView]);
 
+  useEffect(() => {
+    saveUserPresets(userPresets);
+  }, [userPresets]);
+
   const resetSimulation = (nextParams: ReactionDiffusionParams, nextSeedMode: SeedMode) => {
     setParams(nextParams);
     setSeedMode(nextSeedMode);
@@ -92,25 +115,68 @@ function App() {
   };
 
   const handlePresetChange = (presetId: string) => {
-    const preset = patternPresets.find((candidate) => candidate.id === presetId) ?? defaultPreset;
+    const preset = selectablePresets.find((candidate) => candidate.id === presetId);
+
+    if (!preset) {
+      setSelectedPresetId(null);
+      return;
+    }
+
     setSelectedPresetId(preset.id);
     resetSimulation(preset.params, preset.seedMode);
   };
 
   const handleFeedChange = (feed: number) => {
     setParams((current) => withFeedKill(current, feed, current.kill));
-    setSelectedPresetId('custom');
+    setSelectedPresetId(null);
   };
 
   const handleKillChange = (kill: number) => {
     setParams((current) => withFeedKill(current, current.feed, kill));
-    setSelectedPresetId('custom');
+    setSelectedPresetId(null);
   };
 
   const handleRandomize = () => {
     const randomPattern = generateRandomParams();
-    setSelectedPresetId('custom');
+    setSelectedPresetId(null);
     resetSimulation(randomPattern.params, randomPattern.seedMode);
+  };
+
+  const handleSavePreset = () => {
+    const defaultName = selectedPreset
+      ? `${selectedPreset.name} Custom`
+      : getDefaultUserPresetName(userPresets.length);
+    const requestedName = window.prompt('Preset name', defaultName);
+
+    if (requestedName === null) {
+      return;
+    }
+
+    const userPreset = createUserPreset({
+      name: requestedName || defaultName,
+      params,
+      seedMode,
+    });
+
+    setUserPresets((current) => [...current, userPreset]);
+    setSelectedPresetId(userPreset.id);
+  };
+
+  const handleDeletePreset = () => {
+    if (!selectedUserPreset) {
+      return;
+    }
+
+    const shouldDelete = window.confirm(`Delete "${selectedUserPreset.name}"?`);
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setUserPresets((current) =>
+      current.filter((preset) => preset.id !== selectedUserPreset.id),
+    );
+    setSelectedPresetId(null);
   };
 
   const handleSavePng = () => {
@@ -204,21 +270,35 @@ function App() {
           <label className="field">
             <span>Preset</span>
             <select
-              value={selectedPresetId}
+              value={selectedPresetId ?? ''}
               onChange={(event) => handlePresetChange(event.target.value)}
               aria-label="Pattern preset"
             >
-              <option value="custom">Custom</option>
-              {patternPresets.map((preset) => (
-                <option key={preset.id} value={preset.id}>
-                  {preset.name}
-                </option>
-              ))}
+              <option value="" disabled hidden>
+                Current settings
+              </option>
+              <optgroup label="Built-in">
+                {patternPresets.map((preset) => (
+                  <option key={preset.id} value={preset.id}>
+                    {preset.name}
+                  </option>
+                ))}
+              </optgroup>
+              {userPresets.length > 0 && (
+                <optgroup label="Saved">
+                  {userPresets.map((preset) => (
+                    <option key={preset.id} value={preset.id}>
+                      {preset.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </select>
           </label>
 
           <p className="preset-description">
-            {selectedPreset?.description ?? 'A custom parameter set generated from the controls.'}
+            {selectedPreset?.description ??
+              'Current settings are not saved as a preset yet.'}
           </p>
 
           <label className="field range-field">
@@ -250,6 +330,22 @@ function App() {
               aria-label="Kill rate"
             />
           </label>
+
+          <div className="preset-actions">
+            <button type="button" onClick={handleSavePreset}>
+              Save Preset
+            </button>
+            {selectedPresetId && isUserPresetId(selectedPresetId) && (
+              <button
+                type="button"
+                className="danger-action"
+                onClick={handleDeletePreset}
+                disabled={!selectedUserPreset}
+              >
+                Delete Preset
+              </button>
+            )}
+          </div>
 
           <div className="button-row">
             <button type="button" onClick={handleRandomize}>

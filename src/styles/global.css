@@ -267,6 +267,25 @@ select {
   border-bottom: 1px solid var(--line);
 }
 
+.preset-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.65rem;
+}
+
+.preset-actions button {
+  padding: 0.65rem 0.8rem;
+}
+
+.danger-action {
+  border-color: rgba(240, 108, 155, 0.44);
+}
+
+.danger-action:hover {
+  border-color: rgba(240, 108, 155, 0.78);
+  background: #35202b;
+}
+
 .button-row {
   display: grid;
   grid-template-columns: 1fr 1fr;

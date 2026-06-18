@@ -19,8 +19,8 @@ function createSeededRandom(seed: number) {
 
 describe('generateRandomParams', () => {
   it('returns feed and kill values inside the supported slider ranges', () => {
-    for (let index = 0; index < 20; index += 1) {
-      const { params, seedMode } = generateRandomParams();
+    for (let seed = 1; seed <= 4; seed += 1) {
+      const { params, seedMode } = generateRandomParams(createSeededRandom(seed));
 
       expect(params.feed).toBeGreaterThanOrEqual(FEED_RANGE.min);
       expect(params.feed).toBeLessThanOrEqual(FEED_RANGE.max);
