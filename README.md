@@ -22,13 +22,36 @@ Core features:
 - PNG export
 - Responsive layout for desktop and mobile
 
-## Planned Tech Stack
+## Tech Stack
 
 - React
 - TypeScript
 - Vite
 - HTML Canvas
 - Client-side only architecture
+
+## Getting Started
+
+```bash
+npm install
+npm run dev
+```
+
+Build the production bundle:
+
+```bash
+npm run build
+```
+
+Run the focused unit tests:
+
+```bash
+npm run test
+```
+
+## Current MVP
+
+The current implementation includes a Gray-Scott Canvas simulation, five natural-pattern presets, Feed/Kill sliders, random generation, pause/resume, PNG export, a responsive layout, and a short educational explanation.
 
 ## Documentation
 
