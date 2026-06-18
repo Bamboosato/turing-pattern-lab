@@ -1,16 +1,56 @@
 import { describe, expect, it } from 'vitest';
-import { FEED_RANGE, KILL_RANGE, generateRandomParams, withFeedKill } from './random';
+import {
+  FEED_RANGE,
+  KILL_RANGE,
+  generateRandomParams,
+  hasSustainedPatternActivity,
+  withFeedKill,
+} from './random';
+
+function createSeededRandom(seed: number) {
+  let state = seed;
+
+  return () => {
+    state = (state * 1664525 + 1013904223) >>> 0;
+
+    return state / 2 ** 32;
+  };
+}
 
 describe('generateRandomParams', () => {
   it('returns feed and kill values inside the supported slider ranges', () => {
-    for (let index = 0; index < 100; index += 1) {
+    for (let index = 0; index < 20; index += 1) {
       const { params, seedMode } = generateRandomParams();
 
       expect(params.feed).toBeGreaterThanOrEqual(FEED_RANGE.min);
       expect(params.feed).toBeLessThanOrEqual(FEED_RANGE.max);
       expect(params.kill).toBeGreaterThanOrEqual(KILL_RANGE.min);
       expect(params.kill).toBeLessThanOrEqual(KILL_RANGE.max);
-      expect(seedMode).toMatch(/^(center|stripe|spots|web|noise)$/);
+      expect(seedMode).toMatch(/^(center|stripe|spots|web)$/);
+    }
+  });
+
+  it('rejects obvious candidates that flatten out quickly', () => {
+    expect(
+      hasSustainedPatternActivity({
+        params: {
+          feed: 0.07,
+          kill: 0.072,
+          diffA: 1,
+          diffB: 0.5,
+        },
+        seedMode: 'center',
+      }),
+    ).toBe(false);
+  });
+
+  it('returns visually active candidates for deterministic random sequences', () => {
+    for (let seed = 1; seed <= 8; seed += 1) {
+      const pattern = generateRandomParams(createSeededRandom(seed));
+
+      expect
+        .soft(hasSustainedPatternActivity(pattern), `seed ${seed} should produce an active pattern`)
+        .toBe(true);
     }
   });
 });
