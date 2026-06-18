@@ -46,4 +46,50 @@ describe('patternPresets', () => {
 
     expect(maxB).toBeGreaterThan(0.08);
   });
+
+  it('keeps the Leopard preset visibly populated after the first growth phase', () => {
+    const leopard = patternPresets.find((preset) => preset.id === 'leopard');
+
+    expect(leopard).toBeDefined();
+
+    if (!leopard) {
+      return;
+    }
+
+    const state = createSimulationState(72, 72, leopard.seedMode);
+
+    stepSimulation(state, leopard.params, 600);
+
+    const activeRatio =
+      state.b.reduce((count, value) => count + (value > 0.08 ? 1 : 0), 0) / state.b.length;
+
+    expect(activeRatio).toBeGreaterThan(0.08);
+  });
+
+  it('keeps every preset from flattening during the early viewing window', () => {
+    for (const preset of patternPresets) {
+      const state = createSimulationState(96, 96, preset.seedMode);
+
+      stepSimulation(state, preset.params, 1200);
+
+      const values = Array.from(state.b);
+      const maxB = values.reduce((max, value) => Math.max(max, value), 0);
+      const meanB = values.reduce((sum, value) => sum + value, 0) / values.length;
+      const variance =
+        values.reduce((sum, value) => sum + (value - meanB) ** 2, 0) / values.length;
+      const standardDeviation = Math.sqrt(variance);
+      const activeRatio = values.filter((value) => value > 0.08).length / values.length;
+
+      expect.soft(maxB, `${preset.name} should retain visible B concentration`).toBeGreaterThan(0.08);
+      expect
+        .soft(standardDeviation, `${preset.name} should retain visible contrast`)
+        .toBeGreaterThan(0.035);
+      expect
+        .soft(activeRatio, `${preset.name} should not disappear`)
+        .toBeGreaterThan(0.03);
+      expect
+        .soft(activeRatio, `${preset.name} should not become a uniform fill`)
+        .toBeLessThan(0.95);
+    }
+  });
 });
