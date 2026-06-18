@@ -9,6 +9,12 @@ import {
 } from './simulation/size';
 import type { ReactionDiffusionParams, SeedMode } from './simulation/types';
 
+const APP_CANVAS_VIEW_QUERY = '(max-width: 820px), (pointer: coarse)';
+
+function shouldUseAppCanvasView() {
+  return window.matchMedia(APP_CANVAS_VIEW_QUERY).matches;
+}
+
 function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [selectedPresetId, setSelectedPresetId] = useState(defaultPreset.id);
@@ -16,6 +22,7 @@ function App() {
   const [seedMode, setSeedMode] = useState<SeedMode>(defaultPreset.seedMode);
   const [isPaused, setIsPaused] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isCanvasView, setIsCanvasView] = useState(false);
   const [canFullscreen, setCanFullscreen] = useState(false);
   const [simulationSize, setSimulationSize] = useState<SimulationSize>(NORMAL_SIMULATION_SIZE);
   const [resetKey, setResetKey] = useState(0);
@@ -28,13 +35,17 @@ function App() {
   useEffect(() => {
     const syncFullscreenState = () => {
       const canvasIsFullscreen = document.fullscreenElement === canvasRef.current;
+      const shouldUseViewportSize = canvasIsFullscreen || isCanvasView;
+      const nextSimulationSize = shouldUseViewportSize
+        ? getFullscreenSimulationSize(window.innerWidth, window.innerHeight)
+        : NORMAL_SIMULATION_SIZE;
 
       setIsFullscreen(canvasIsFullscreen);
-      setCanFullscreen(document.fullscreenEnabled !== false && Boolean(canvasRef.current?.requestFullscreen));
-      setSimulationSize(
-        canvasIsFullscreen
-          ? getFullscreenSimulationSize(window.innerWidth, window.innerHeight)
-          : NORMAL_SIMULATION_SIZE,
+      setCanFullscreen(Boolean(canvasRef.current));
+      setSimulationSize((current) =>
+        current.width === nextSimulationSize.width && current.height === nextSimulationSize.height
+          ? current
+          : nextSimulationSize,
       );
     };
 
@@ -46,7 +57,33 @@ function App() {
       document.removeEventListener('fullscreenchange', syncFullscreenState);
       window.removeEventListener('resize', syncFullscreenState);
     };
-  }, []);
+  }, [isCanvasView]);
+
+  useEffect(() => {
+    document.body.classList.toggle('canvas-view-active', isCanvasView);
+
+    return () => {
+      document.body.classList.remove('canvas-view-active');
+    };
+  }, [isCanvasView]);
+
+  useEffect(() => {
+    if (!isCanvasView) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsCanvasView(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isCanvasView]);
 
   const resetSimulation = (nextParams: ReactionDiffusionParams, nextSeedMode: SeedMode) => {
     setParams(nextParams);
@@ -89,27 +126,48 @@ function App() {
     link.click();
   };
 
+  const handleExitPresentationView = async () => {
+    const canvas = canvasRef.current;
+
+    if (document.fullscreenElement === canvas && document.exitFullscreen) {
+      try {
+        await document.exitFullscreen();
+      } catch {
+        setIsFullscreen(false);
+      }
+    }
+
+    setIsCanvasView(false);
+  };
+
   const handleFullscreen = async () => {
     const canvas = canvasRef.current;
 
-    if (!canvas?.requestFullscreen) {
+    if (!canvas) {
+      return;
+    }
+
+    if (document.fullscreenElement === canvas || isCanvasView) {
+      await handleExitPresentationView();
+      return;
+    }
+
+    if (shouldUseAppCanvasView() || !canvas.requestFullscreen) {
+      setIsCanvasView(true);
       return;
     }
 
     try {
-      if (document.fullscreenElement === canvas) {
-        await document.exitFullscreen();
-        return;
-      }
-
       await canvas.requestFullscreen();
     } catch {
-      setIsFullscreen(false);
+      setIsCanvasView(true);
     }
   };
 
+  const isPresentationView = isFullscreen || isCanvasView;
+
   return (
-    <main className="app-shell">
+    <main className={isCanvasView ? 'app-shell app-shell--canvas-view' : 'app-shell'}>
       <section className="intro-section" aria-labelledby="page-title">
         <div>
           <p className="eyebrow">Reaction-diffusion canvas lab</p>
@@ -122,7 +180,7 @@ function App() {
       </section>
 
       <section className="workspace" aria-label="Interactive Turing pattern simulator">
-        <div className="canvas-stage">
+        <div className={isCanvasView ? 'canvas-stage canvas-stage--immersive' : 'canvas-stage'}>
           <SimulationCanvas
             canvasRef={canvasRef}
             params={params}
@@ -131,6 +189,15 @@ function App() {
             seedMode={seedMode}
             simulationSize={simulationSize}
           />
+          {isCanvasView && (
+            <button
+              type="button"
+              className="canvas-view-exit"
+              onClick={handleExitPresentationView}
+            >
+              Exit
+            </button>
+          )}
         </div>
 
         <aside className="control-panel" aria-label="Simulation controls">
@@ -195,9 +262,9 @@ function App() {
               type="button"
               onClick={handleFullscreen}
               disabled={!canFullscreen}
-              aria-pressed={isFullscreen}
+              aria-pressed={isPresentationView}
             >
-              {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+              {isPresentationView ? 'Exit Fullscreen' : 'Fullscreen'}
             </button>
             <button type="button" className="primary-action" onClick={handleSavePng}>
               Save PNG

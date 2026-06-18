@@ -26,8 +26,8 @@ export const patternPresets = [
     name: 'Giraffe',
     description: 'Branching cells and island edges inspired by giraffe coat markings.',
     params: {
-      feed: 0.034,
-      kill: 0.056,
+      feed: 0.05,
+      kill: 0.063,
       diffA: 1,
       diffB: 0.5,
     },
@@ -36,10 +36,10 @@ export const patternPresets = [
   {
     id: 'leopard',
     name: 'Leopard',
-    description: 'Dense spot clusters that separate into organic rosettes.',
+    description: 'Spotted colonies that keep expanding into organic rosettes.',
     params: {
-      feed: 0.0367,
-      kill: 0.0649,
+      feed: 0.034,
+      kill: 0.062,
       diffA: 1,
       diffB: 0.5,
     },

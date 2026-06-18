@@ -94,17 +94,27 @@ function seedPattern(state: SimulationState, seedMode: SeedMode): void {
   }
 
   if (seedMode === 'spots') {
-    const radius = Math.max(4, Math.floor(width * 0.028));
+    const baseSize = Math.min(width, height);
+    const radius = Math.max(4, Math.floor(baseSize * 0.032));
     const points = [
+      [0.22, 0.24],
       [0.34, 0.34],
       [0.5, 0.3],
       [0.66, 0.36],
+      [0.78, 0.26],
+      [0.26, 0.48],
       [0.38, 0.53],
       [0.58, 0.54],
+      [0.74, 0.52],
+      [0.2, 0.68],
       [0.48, 0.7],
       [0.7, 0.68],
+      [0.34, 0.82],
+      [0.62, 0.84],
     ];
-    points.forEach(([x, y]) => paintDisc(a, b, width, height, x * width, y * height, radius));
+    points.forEach(([x, y], index) =>
+      paintDisc(a, b, width, height, x * width, y * height, radius + (index % 3 === 0 ? 1 : 0)),
+    );
     return;
   }
 
