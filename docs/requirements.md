@@ -249,6 +249,19 @@ MVPではCanvasを採用する。WebGL対応は将来拡張とする。
 - スマートフォンで画面が破綻しない
 - READMEと要件定義書が整備されている
 
+## 8.1 実装済みスコープ
+
+初期MVPでは、React + TypeScript + Vite のクライアントサイド構成で以下を実装対象とする。
+
+- Gray-ScottモデルによるCanvas上のリアルタイム描画
+- Zebra / Giraffe / Leopard / Coral / Maze の5プリセット
+- Feed / Kill のスライダー調整
+- ランダム生成
+- 一時停止／再開
+- Canvas内容のPNG保存
+- PC / スマートフォン向けレスポンシブUI
+- プリセット定義とランダム値範囲の最小単体テスト
+
 ## 9. 開発上の優先順位
 
 1. CanvasでGray-Scottモデルを表示する
