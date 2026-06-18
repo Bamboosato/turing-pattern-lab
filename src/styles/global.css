@@ -180,6 +180,8 @@ h2 {
   width: min(100%, 720px);
   aspect-ratio: 1 / 1;
   height: auto;
+  cursor: crosshair;
+  touch-action: none;
   border: 1px solid rgba(84, 216, 199, 0.28);
   background: #101014;
   box-shadow:

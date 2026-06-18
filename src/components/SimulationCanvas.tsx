@@ -1,10 +1,25 @@
-import { useEffect, useRef, type RefObject } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  type MouseEvent,
+  type PointerEvent,
+  type RefObject,
+} from 'react';
+import { injectActivator } from '../simulation/brush';
 import { createSimulationState, stepSimulation } from '../simulation/grayScott';
 import { writePatternImageData } from '../simulation/render';
 import type { SimulationSize } from '../simulation/size';
 import type { ReactionDiffusionParams, SeedMode, SimulationState } from '../simulation/types';
 
 const STEPS_PER_FRAME = 3;
+const BRUSH_STRENGTH = 0.58;
+const MOUSE_FALLBACK_IGNORE_MS = 450;
+
+type BrushPoint = {
+  x: number;
+  y: number;
+};
 
 type SimulationCanvasProps = {
   canvasRef: RefObject<HTMLCanvasElement | null>;
@@ -27,6 +42,11 @@ export function SimulationCanvas({
   const pausedRef = useRef(isPaused);
   const stateRef = useRef<SimulationState | null>(null);
   const imageDataRef = useRef<ImageData | null>(null);
+  const activePointerIdRef = useRef<number | null>(null);
+  const isMousePaintingRef = useRef(false);
+  const lastBrushPointRef = useRef<BrushPoint | null>(null);
+  const lastPointerInputAtRef = useRef(0);
+  const lastBrushInputAtRef = useRef(0);
 
   useEffect(() => {
     paramsRef.current = params;
@@ -35,6 +55,180 @@ export function SimulationCanvas({
   useEffect(() => {
     pausedRef.current = isPaused;
   }, [isPaused]);
+
+  const getBrushPoint = useCallback(
+    (clientX: number, clientY: number): BrushPoint | null => {
+      const canvas = canvasRef.current;
+      const state = stateRef.current;
+
+      if (!canvas || !state) {
+        return null;
+      }
+
+      const rect = canvas.getBoundingClientRect();
+
+      if (rect.width <= 0 || rect.height <= 0) {
+        return null;
+      }
+
+      const x = ((clientX - rect.left) / rect.width) * state.width;
+      const y = ((clientY - rect.top) / rect.height) * state.height;
+
+      if (x < 0 || x >= state.width || y < 0 || y >= state.height) {
+        return null;
+      }
+
+      return { x, y };
+    },
+    [canvasRef],
+  );
+
+  const paintBrushStroke = useCallback((from: BrushPoint | null, to: BrushPoint) => {
+    const state = stateRef.current;
+
+    if (!state) {
+      return;
+    }
+
+    const radius = Math.max(5, Math.round(Math.min(state.width, state.height) * 0.028));
+    const spacing = Math.max(1, radius * 0.45);
+
+    if (!from) {
+      injectActivator(state, to.x, to.y, { radius, strength: BRUSH_STRENGTH });
+      lastBrushInputAtRef.current = Date.now();
+      return;
+    }
+
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const distance = Math.hypot(dx, dy);
+    const steps = Math.max(1, Math.ceil(distance / spacing));
+
+    for (let step = 1; step <= steps; step += 1) {
+      const progress = step / steps;
+      injectActivator(state, from.x + dx * progress, from.y + dy * progress, {
+        radius,
+        strength: BRUSH_STRENGTH,
+      });
+    }
+
+    lastBrushInputAtRef.current = Date.now();
+  }, []);
+
+  const handlePointerDown = useCallback(
+    (event: PointerEvent<HTMLCanvasElement>) => {
+      const point = getBrushPoint(event.clientX, event.clientY);
+
+      if (!point) {
+        return;
+      }
+
+      event.preventDefault();
+      lastPointerInputAtRef.current = Date.now();
+      activePointerIdRef.current = event.pointerId;
+      lastBrushPointRef.current = point;
+      event.currentTarget.setPointerCapture(event.pointerId);
+      paintBrushStroke(null, point);
+    },
+    [getBrushPoint, paintBrushStroke],
+  );
+
+  const handlePointerMove = useCallback(
+    (event: PointerEvent<HTMLCanvasElement>) => {
+      if (activePointerIdRef.current !== event.pointerId) {
+        return;
+      }
+
+      const point = getBrushPoint(event.clientX, event.clientY);
+
+      if (!point) {
+        return;
+      }
+
+      event.preventDefault();
+      lastPointerInputAtRef.current = Date.now();
+      paintBrushStroke(lastBrushPointRef.current, point);
+      lastBrushPointRef.current = point;
+    },
+    [getBrushPoint, paintBrushStroke],
+  );
+
+  const handlePointerEnd = useCallback((event: PointerEvent<HTMLCanvasElement>) => {
+    if (activePointerIdRef.current !== event.pointerId) {
+      return;
+    }
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    activePointerIdRef.current = null;
+    lastBrushPointRef.current = null;
+  }, []);
+
+  const shouldIgnoreMouseFallback = useCallback(
+    () => Date.now() - lastPointerInputAtRef.current < MOUSE_FALLBACK_IGNORE_MS,
+    [],
+  );
+
+  const handleMouseDown = useCallback(
+    (event: MouseEvent<HTMLCanvasElement>) => {
+      if (shouldIgnoreMouseFallback()) {
+        return;
+      }
+
+      const point = getBrushPoint(event.clientX, event.clientY);
+
+      if (!point) {
+        return;
+      }
+
+      event.preventDefault();
+      isMousePaintingRef.current = true;
+      lastBrushPointRef.current = point;
+      paintBrushStroke(null, point);
+    },
+    [getBrushPoint, paintBrushStroke, shouldIgnoreMouseFallback],
+  );
+
+  const handleMouseMove = useCallback(
+    (event: MouseEvent<HTMLCanvasElement>) => {
+      if (!isMousePaintingRef.current || shouldIgnoreMouseFallback()) {
+        return;
+      }
+
+      const point = getBrushPoint(event.clientX, event.clientY);
+
+      if (!point) {
+        return;
+      }
+
+      event.preventDefault();
+      paintBrushStroke(lastBrushPointRef.current, point);
+      lastBrushPointRef.current = point;
+    },
+    [getBrushPoint, paintBrushStroke, shouldIgnoreMouseFallback],
+  );
+
+  const handleMouseEnd = useCallback(() => {
+    isMousePaintingRef.current = false;
+    lastBrushPointRef.current = null;
+  }, []);
+
+  const handleClick = useCallback(
+    (event: MouseEvent<HTMLCanvasElement>) => {
+      if (Date.now() - lastBrushInputAtRef.current < MOUSE_FALLBACK_IGNORE_MS) {
+        return;
+      }
+
+      const point = getBrushPoint(event.clientX, event.clientY);
+
+      if (point) {
+        paintBrushStroke(null, point);
+      }
+    },
+    [getBrushPoint, paintBrushStroke],
+  );
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -88,6 +282,16 @@ export function SimulationCanvas({
       ref={canvasRef}
       className="simulation-canvas"
       aria-label="Animated Gray-Scott reaction-diffusion pattern"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerEnd}
+      onPointerCancel={handlePointerEnd}
+      onLostPointerCapture={handlePointerEnd}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseEnd}
+      onMouseLeave={handleMouseEnd}
+      onClick={handleClick}
     />
   );
 }
