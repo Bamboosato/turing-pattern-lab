@@ -156,6 +156,20 @@ MVPではCanvasを採用する。WebGL対応は将来拡張とする。
 - 固定テキストでよい
 - 詳細な数式解説は必須としない
 
+## F-08 カスタムプリセット保存
+
+### 概要
+
+Randomやスライダー調整後の現在設定を、ユーザーが再利用できるプリセットとして保存する。
+
+### 要件
+
+- 現在のFeed / Kill / Seedを保存できる
+- 保存名をユーザーが指定できる
+- 保存済みプリセットをプリセット選択に表示する
+- 保存済みプリセットを削除できる
+- MVPではブラウザのlocalStorageに保存する
+
 ## 5. 画面構成
 
 ## 5.1 ホーム画面
@@ -172,6 +186,8 @@ MVPではCanvasを採用する。WebGL対応は将来拡張とする。
   - Feedスライダー
   - Killスライダー
   - Randomボタン
+  - Save Presetボタン
+  - Delete Presetボタン
   - Pause/Resumeボタン
   - Save PNGボタン
 - 解説エリア
@@ -257,6 +273,7 @@ MVPではCanvasを採用する。WebGL対応は将来拡張とする。
 - Zebra / Giraffe / Leopard / Coral / Maze の5プリセット
 - Feed / Kill のスライダー調整
 - ランダム生成
+- Random / 現在設定のローカルプリセット保存
 - 一時停止／再開
 - Canvas内容のPNG保存
 - PC / スマートフォン向けレスポンシブUI
