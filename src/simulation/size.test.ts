@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { getFullscreenSimulationSize, NORMAL_SIMULATION_SIZE } from './size';
+import {
+  getFullscreenSimulationSize,
+  getScaledSimulationSize,
+  NORMAL_SIMULATION_SIZE,
+} from './size';
 
 describe('getFullscreenSimulationSize', () => {
   it('matches a landscape viewport ratio without using the full screen pixel count', () => {
@@ -19,5 +23,33 @@ describe('getFullscreenSimulationSize', () => {
 
   it('falls back to the normal square simulation for invalid viewport dimensions', () => {
     expect(getFullscreenSimulationSize(0, 844)).toEqual(NORMAL_SIMULATION_SIZE);
+  });
+});
+
+describe('getScaledSimulationSize', () => {
+  it('keeps the base size at 100 percent', () => {
+    expect(getScaledSimulationSize(NORMAL_SIMULATION_SIZE, 100)).toEqual(NORMAL_SIMULATION_SIZE);
+  });
+
+  it('scales the base size by the requested percent', () => {
+    expect(getScaledSimulationSize(NORMAL_SIMULATION_SIZE, 50)).toEqual({
+      width: 112,
+      height: 112,
+    });
+    expect(getScaledSimulationSize(NORMAL_SIMULATION_SIZE, 200)).toEqual({
+      width: 448,
+      height: 448,
+    });
+  });
+
+  it('clamps unsupported percentages to the supported range', () => {
+    expect(getScaledSimulationSize(NORMAL_SIMULATION_SIZE, 25)).toEqual({
+      width: 112,
+      height: 112,
+    });
+    expect(getScaledSimulationSize(NORMAL_SIMULATION_SIZE, 250)).toEqual({
+      width: 448,
+      height: 448,
+    });
   });
 });

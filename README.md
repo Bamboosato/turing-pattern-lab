@@ -18,6 +18,7 @@ Core features:
 - Preset pattern selection
 - Save and delete local user presets
 - Feed and Kill parameter sliders
+- Simulation scale slider from 50% to 200%
 - Random pattern generation
 - Pause and resume
 - PNG export
@@ -53,7 +54,7 @@ npm run test
 
 ## Current MVP
 
-The current implementation includes a Gray-Scott Canvas simulation, five natural-pattern presets, local user preset saving, Feed/Kill sliders, random generation, pause/resume, PNG export, tap and drag gesture injection, a responsive layout, and a short educational explanation.
+The current implementation includes a Gray-Scott Canvas simulation, five natural-pattern presets, local user preset saving, Feed/Kill sliders, 50%-200% simulation scale control, random generation, pause/resume, PNG export, tap and drag gesture injection, a responsive layout, and a short educational explanation.
 
 ## Documentation
 

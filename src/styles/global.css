@@ -284,6 +284,13 @@ select {
   text-align: center;
 }
 
+.scale-detail {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-align: right;
+}
+
 .preset-description {
   min-height: 4.8rem;
   margin: 0;

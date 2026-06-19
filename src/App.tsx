@@ -12,7 +12,9 @@ import {
 import { FEED_RANGE, KILL_RANGE, generateRandomParams, withFeedKill } from './simulation/random';
 import {
   getFullscreenSimulationSize,
+  getScaledSimulationSize,
   NORMAL_SIMULATION_SIZE,
+  SIMULATION_SCALE_RANGE,
   type SimulationSize,
 } from './simulation/size';
 import type { ReactionDiffusionParams, SeedMode } from './simulation/types';
@@ -34,7 +36,9 @@ function App() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isCanvasView, setIsCanvasView] = useState(false);
   const [canFullscreen, setCanFullscreen] = useState(false);
-  const [simulationSize, setSimulationSize] = useState<SimulationSize>(NORMAL_SIMULATION_SIZE);
+  const [baseSimulationSize, setBaseSimulationSize] =
+    useState<SimulationSize>(NORMAL_SIMULATION_SIZE);
+  const [scalePercent, setScalePercent] = useState(100);
   const [resetKey, setResetKey] = useState(0);
 
   const selectablePresets = useMemo(
@@ -52,20 +56,26 @@ function App() {
     [selectedPresetId, userPresets],
   );
 
+  const simulationSize = useMemo(
+    () => getScaledSimulationSize(baseSimulationSize, scalePercent),
+    [baseSimulationSize, scalePercent],
+  );
+
   useEffect(() => {
     const syncFullscreenState = () => {
       const canvasIsFullscreen = document.fullscreenElement === canvasRef.current;
       const shouldUseViewportSize = canvasIsFullscreen || isCanvasView;
-      const nextSimulationSize = shouldUseViewportSize
+      const nextBaseSimulationSize = shouldUseViewportSize
         ? getFullscreenSimulationSize(window.innerWidth, window.innerHeight)
         : NORMAL_SIMULATION_SIZE;
 
       setIsFullscreen(canvasIsFullscreen);
       setCanFullscreen(Boolean(canvasRef.current));
-      setSimulationSize((current) =>
-        current.width === nextSimulationSize.width && current.height === nextSimulationSize.height
+      setBaseSimulationSize((current) =>
+        current.width === nextBaseSimulationSize.width &&
+        current.height === nextBaseSimulationSize.height
           ? current
-          : nextSimulationSize,
+          : nextBaseSimulationSize,
       );
     };
 
@@ -145,6 +155,10 @@ function App() {
   const handleKillAdjust = (delta: number) => {
     setParams((current) => withFeedKill(current, current.feed, current.kill + delta));
     setSelectedPresetId(null);
+  };
+
+  const handleScaleChange = (scale: number) => {
+    setScalePercent(scale);
   };
 
   const handleRandomize = () => {
@@ -382,6 +396,24 @@ function App() {
                 +
               </button>
             </div>
+          </label>
+
+          <label className="field range-field">
+            <span>
+              Scale <strong>{scalePercent}%</strong>
+            </span>
+            <input
+              type="range"
+              min={SIMULATION_SCALE_RANGE.min}
+              max={SIMULATION_SCALE_RANGE.max}
+              step={SIMULATION_SCALE_RANGE.step}
+              value={scalePercent}
+              onChange={(event) => handleScaleChange(Number(event.target.value))}
+              aria-label="Simulation resolution scale"
+            />
+            <span className="scale-detail" aria-live="polite">
+              {simulationSize.width} x {simulationSize.height}px
+            </span>
           </label>
 
           <div className="preset-actions">
