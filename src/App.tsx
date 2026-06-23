@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { SimulationCanvas } from './components/SimulationCanvas';
 import { patternPresets, defaultPreset } from './presets/presets';
 import {
@@ -18,9 +18,6 @@ import {
   type SimulationSize,
 } from './simulation/size';
 import {
-  createMotionShakeState,
-  settleMotionShakeState,
-  updateMotionShakeState,
   type MotionShakeSample,
 } from './simulation/motionShake';
 import type { ReactionDiffusionParams, SeedMode } from './simulation/types';
@@ -79,7 +76,6 @@ function getMotionEventSample(event: DeviceMotionEvent): MotionShakeSample | nul
 
 function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const motionShakeRef = useRef(createMotionShakeState());
   const motionSampleRef = useRef<MotionShakeSample | null>(null);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(defaultPreset.id);
   const [userPresets, setUserPresets] = useState<UserPreset[]>(() => loadUserPresets());
@@ -116,17 +112,6 @@ function App() {
     () => getScaledSimulationSize(baseSimulationSize, scalePercent),
     [baseSimulationSize, scalePercent],
   );
-
-  const resetCanvasMotionStyle = useCallback(() => {
-    const canvas = canvasRef.current;
-
-    if (!canvas) {
-      return;
-    }
-
-    canvas.style.removeProperty('--motion-shake-x');
-    canvas.style.removeProperty('--motion-shake-y');
-  }, []);
 
   useEffect(() => {
     const syncFullscreenState = () => {
@@ -227,12 +212,8 @@ function App() {
   useEffect(() => {
     if (motionShakeStatus !== 'active') {
       motionSampleRef.current = null;
-      motionShakeRef.current = createMotionShakeState();
-      resetCanvasMotionStyle();
       return;
     }
-
-    let motionAnimationFrame = 0;
 
     const handleDeviceMotion = (event: DeviceMotionEvent) => {
       const sample = getMotionEventSample(event);
@@ -242,42 +223,13 @@ function App() {
       }
     };
 
-    const animateMotionShake = () => {
-      const sample = motionSampleRef.current;
-
-      motionShakeRef.current = sample
-        ? updateMotionShakeState(motionShakeRef.current, sample)
-        : settleMotionShakeState(motionShakeRef.current);
-      motionSampleRef.current = null;
-
-      const canvas = canvasRef.current;
-
-      if (canvas) {
-        canvas.style.setProperty(
-          '--motion-shake-x',
-          `${motionShakeRef.current.offsetX.toFixed(2)}px`,
-        );
-        canvas.style.setProperty(
-          '--motion-shake-y',
-          `${motionShakeRef.current.offsetY.toFixed(2)}px`,
-        );
-      }
-
-      motionAnimationFrame = window.requestAnimationFrame(animateMotionShake);
-    };
-
-    motionShakeRef.current = createMotionShakeState();
     window.addEventListener('devicemotion', handleDeviceMotion, { passive: true });
-    animateMotionShake();
 
     return () => {
       window.removeEventListener('devicemotion', handleDeviceMotion);
-      window.cancelAnimationFrame(motionAnimationFrame);
       motionSampleRef.current = null;
-      motionShakeRef.current = createMotionShakeState();
-      resetCanvasMotionStyle();
     };
-  }, [motionShakeStatus, resetCanvasMotionStyle]);
+  }, [motionShakeStatus]);
 
   const resetSimulation = (nextParams: ReactionDiffusionParams, nextSeedMode: SeedMode) => {
     setParams(nextParams);
@@ -475,6 +427,7 @@ function App() {
             seedMode={seedMode}
             simulationSize={simulationSize}
             isMotionShakeActive={isMotionShakeActive}
+            motionSampleRef={motionSampleRef}
           />
           {isCanvasView && (
             <button
@@ -613,7 +566,7 @@ function App() {
           </label>
 
           {isMotionControlVisible && (
-            <div className="motion-control" aria-label="Phone motion canvas shake">
+            <div className="motion-control" aria-label="Phone motion pattern disturbance">
               <span className="motion-control__label">
                 Phone motion{' '}
                 <strong aria-live="polite">
@@ -627,8 +580,8 @@ function App() {
                 aria-pressed={isMotionShakeActive}
                 aria-label={
                   isMotionShakeActive
-                    ? 'Disable phone motion canvas shake'
-                    : 'Enable phone motion canvas shake'
+                    ? 'Disable phone motion pattern disturbance'
+                    : 'Enable phone motion pattern disturbance'
                 }
               >
                 {isMotionShakeActive ? 'Stop Shake' : 'Enable Shake'}

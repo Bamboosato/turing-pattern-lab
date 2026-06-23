@@ -176,9 +176,6 @@ h2 {
 }
 
 .simulation-canvas {
-  --motion-shake-x: 0px;
-  --motion-shake-y: 0px;
-  --motion-shake-scale: 1;
   display: block;
   width: min(100%, 720px);
   aspect-ratio: 1 / 1;
@@ -190,14 +187,6 @@ h2 {
   box-shadow:
     0 0 0 8px rgba(84, 216, 199, 0.05),
     0 26px 80px rgba(84, 216, 199, 0.13);
-  transform: translate3d(var(--motion-shake-x), var(--motion-shake-y), 0)
-    scale(var(--motion-shake-scale));
-  transform-origin: center;
-  will-change: transform;
-}
-
-.simulation-canvas--motion-shake {
-  --motion-shake-scale: 1.015;
 }
 
 .simulation-canvas:fullscreen {
