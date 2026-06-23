@@ -8,6 +8,13 @@ import {
 } from 'react';
 import { injectActivator } from '../simulation/brush';
 import { createSimulationState, stepSimulation } from '../simulation/grayScott';
+import {
+  applyMotionShakeDisturbance,
+  createMotionShakeState,
+  settleMotionShakeState,
+  updateMotionShakeState,
+  type MotionShakeSample,
+} from '../simulation/motionShake';
 import { writePatternImageData } from '../simulation/render';
 import type { SimulationSize } from '../simulation/size';
 import type { ReactionDiffusionParams, SeedMode, SimulationState } from '../simulation/types';
@@ -26,6 +33,7 @@ type SimulationCanvasProps = {
   params: ReactionDiffusionParams;
   isPaused: boolean;
   isMotionShakeActive: boolean;
+  motionSampleRef: RefObject<MotionShakeSample | null>;
   resetKey: number;
   seedMode: SeedMode;
   simulationSize: SimulationSize;
@@ -36,12 +44,15 @@ export function SimulationCanvas({
   params,
   isPaused,
   isMotionShakeActive,
+  motionSampleRef,
   resetKey,
   seedMode,
   simulationSize,
 }: SimulationCanvasProps) {
   const paramsRef = useRef(params);
   const pausedRef = useRef(isPaused);
+  const motionShakeActiveRef = useRef(isMotionShakeActive);
+  const motionShakeRef = useRef(createMotionShakeState());
   const stateRef = useRef<SimulationState | null>(null);
   const imageDataRef = useRef<ImageData | null>(null);
   const activePointerIdRef = useRef<number | null>(null);
@@ -57,6 +68,15 @@ export function SimulationCanvas({
   useEffect(() => {
     pausedRef.current = isPaused;
   }, [isPaused]);
+
+  useEffect(() => {
+    motionShakeActiveRef.current = isMotionShakeActive;
+
+    if (!isMotionShakeActive) {
+      motionSampleRef.current = null;
+      motionShakeRef.current = createMotionShakeState();
+    }
+  }, [isMotionShakeActive, motionSampleRef]);
 
   const getBrushPoint = useCallback(
     (clientX: number, clientY: number): BrushPoint | null => {
@@ -244,7 +264,16 @@ export function SimulationCanvas({
     canvas.height = simulationSize.height;
     imageDataRef.current = context.createImageData(simulationSize.width, simulationSize.height);
     stateRef.current = createSimulationState(simulationSize.width, simulationSize.height, seedMode);
-  }, [canvasRef, resetKey, seedMode, simulationSize.height, simulationSize.width]);
+    motionSampleRef.current = null;
+    motionShakeRef.current = createMotionShakeState();
+  }, [
+    canvasRef,
+    motionSampleRef,
+    resetKey,
+    seedMode,
+    simulationSize.height,
+    simulationSize.width,
+  ]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -261,6 +290,15 @@ export function SimulationCanvas({
       const imageData = imageDataRef.current;
 
       if (state && imageData) {
+        if (motionShakeActiveRef.current) {
+          const sample = motionSampleRef.current;
+          motionSampleRef.current = null;
+          motionShakeRef.current = sample
+            ? updateMotionShakeState(motionShakeRef.current, sample)
+            : settleMotionShakeState(motionShakeRef.current);
+          applyMotionShakeDisturbance(state, motionShakeRef.current);
+        }
+
         if (!pausedRef.current) {
           stepSimulation(state, paramsRef.current, STEPS_PER_FRAME);
         }
@@ -282,11 +320,7 @@ export function SimulationCanvas({
   return (
     <canvas
       ref={canvasRef}
-      className={
-        isMotionShakeActive
-          ? 'simulation-canvas simulation-canvas--motion-shake'
-          : 'simulation-canvas'
-      }
+      className="simulation-canvas"
       aria-label="Animated Gray-Scott reaction-diffusion pattern"
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}

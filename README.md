@@ -23,7 +23,7 @@ Core features:
 - Pause and resume
 - PNG export
 - Tap and drag gesture injection on the Canvas
-- Phone motion shake on supported mobile browsers
+- Phone motion pattern disturbance on supported mobile browsers
 - Responsive layout for desktop and mobile
 
 ## Tech Stack
@@ -55,7 +55,7 @@ npm run test
 
 ## Current MVP
 
-The current implementation includes a Gray-Scott Canvas simulation, five natural-pattern presets, local user preset saving, Feed/Kill sliders, 50%-200% simulation scale control, random generation, pause/resume, PNG export, tap and drag gesture injection, phone motion shake on supported mobile browsers, a responsive layout, and a short educational explanation.
+The current implementation includes a Gray-Scott Canvas simulation, five natural-pattern presets, local user preset saving, Feed/Kill sliders, 50%-200% simulation scale control, random generation, pause/resume, PNG export, tap and drag gesture injection, phone motion pattern disturbance on supported mobile browsers, a responsive layout, and a short educational explanation.
 
 ## Documentation
 
