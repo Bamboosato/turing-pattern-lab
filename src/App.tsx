@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SimulationCanvas } from './components/SimulationCanvas';
 import { patternPresets, defaultPreset } from './presets/presets';
 import {
@@ -17,17 +17,70 @@ import {
   SIMULATION_SCALE_RANGE,
   type SimulationSize,
 } from './simulation/size';
+import {
+  createMotionShakeState,
+  settleMotionShakeState,
+  updateMotionShakeState,
+  type MotionShakeSample,
+} from './simulation/motionShake';
 import type { ReactionDiffusionParams, SeedMode } from './simulation/types';
 
 const APP_CANVAS_VIEW_QUERY = '(max-width: 820px), (pointer: coarse)';
 const FINE_TUNE_STEP = 0.0001;
 
+type MotionShakeStatus = 'unavailable' | 'idle' | 'active' | 'denied';
+
+type DeviceMotionEventWithPermission = typeof DeviceMotionEvent & {
+  requestPermission?: () => Promise<PermissionState>;
+};
+
+const MOTION_SHAKE_STATUS_LABEL: Record<MotionShakeStatus, string> = {
+  unavailable: 'Unavailable',
+  idle: 'Off',
+  active: 'On',
+  denied: 'Blocked',
+};
+
 function shouldUseAppCanvasView() {
   return window.matchMedia(APP_CANVAS_VIEW_QUERY).matches;
 }
 
+function getDeviceMotionEventConstructor() {
+  if (typeof window.DeviceMotionEvent === 'undefined') {
+    return null;
+  }
+
+  return window.DeviceMotionEvent as DeviceMotionEventWithPermission;
+}
+
+function getMotionEventSample(event: DeviceMotionEvent): MotionShakeSample | null {
+  const acceleration = event.acceleration;
+  const accelerationIncludingGravity = event.accelerationIncludingGravity;
+  const rotationRate = event.rotationRate;
+  const x =
+    acceleration?.x ??
+    accelerationIncludingGravity?.x ??
+    (typeof rotationRate?.gamma === 'number' ? rotationRate.gamma / 45 : undefined);
+  const y =
+    acceleration?.y ??
+    accelerationIncludingGravity?.y ??
+    (typeof rotationRate?.beta === 'number' ? rotationRate.beta / 45 : undefined);
+
+  if (x === null && y === null) {
+    return null;
+  }
+
+  if (typeof x === 'undefined' && typeof y === 'undefined') {
+    return null;
+  }
+
+  return { x, y };
+}
+
 function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const motionShakeRef = useRef(createMotionShakeState());
+  const motionSampleRef = useRef<MotionShakeSample | null>(null);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(defaultPreset.id);
   const [userPresets, setUserPresets] = useState<UserPreset[]>(() => loadUserPresets());
   const [params, setParams] = useState<ReactionDiffusionParams>(defaultPreset.params);
@@ -40,6 +93,9 @@ function App() {
     useState<SimulationSize>(NORMAL_SIMULATION_SIZE);
   const [scalePercent, setScalePercent] = useState(100);
   const [resetKey, setResetKey] = useState(0);
+  const [motionShakeStatus, setMotionShakeStatus] =
+    useState<MotionShakeStatus>('unavailable');
+  const [isMotionControlVisible, setIsMotionControlVisible] = useState(false);
 
   const selectablePresets = useMemo(
     () => [...patternPresets, ...userPresets],
@@ -60,6 +116,17 @@ function App() {
     () => getScaledSimulationSize(baseSimulationSize, scalePercent),
     [baseSimulationSize, scalePercent],
   );
+
+  const resetCanvasMotionStyle = useCallback(() => {
+    const canvas = canvasRef.current;
+
+    if (!canvas) {
+      return;
+    }
+
+    canvas.style.removeProperty('--motion-shake-x');
+    canvas.style.removeProperty('--motion-shake-y');
+  }, []);
 
   useEffect(() => {
     const syncFullscreenState = () => {
@@ -119,6 +186,99 @@ function App() {
     saveUserPresets(userPresets);
   }, [userPresets]);
 
+  useEffect(() => {
+    const motionMedia = window.matchMedia(APP_CANVAS_VIEW_QUERY);
+
+    const syncMotionAvailability = () => {
+      const isVisible = motionMedia.matches;
+      const supportsMotion = getDeviceMotionEventConstructor() !== null;
+
+      setIsMotionControlVisible(isVisible);
+      setMotionShakeStatus((current) => {
+        if (!isVisible || !supportsMotion) {
+          return 'unavailable';
+        }
+
+        if (current === 'active' || current === 'denied') {
+          return current;
+        }
+
+        return 'idle';
+      });
+    };
+
+    syncMotionAvailability();
+
+    if (typeof motionMedia.addEventListener === 'function') {
+      motionMedia.addEventListener('change', syncMotionAvailability);
+
+      return () => {
+        motionMedia.removeEventListener('change', syncMotionAvailability);
+      };
+    }
+
+    motionMedia.addListener(syncMotionAvailability);
+
+    return () => {
+      motionMedia.removeListener(syncMotionAvailability);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (motionShakeStatus !== 'active') {
+      motionSampleRef.current = null;
+      motionShakeRef.current = createMotionShakeState();
+      resetCanvasMotionStyle();
+      return;
+    }
+
+    let motionAnimationFrame = 0;
+
+    const handleDeviceMotion = (event: DeviceMotionEvent) => {
+      const sample = getMotionEventSample(event);
+
+      if (sample) {
+        motionSampleRef.current = sample;
+      }
+    };
+
+    const animateMotionShake = () => {
+      const sample = motionSampleRef.current;
+
+      motionShakeRef.current = sample
+        ? updateMotionShakeState(motionShakeRef.current, sample)
+        : settleMotionShakeState(motionShakeRef.current);
+      motionSampleRef.current = null;
+
+      const canvas = canvasRef.current;
+
+      if (canvas) {
+        canvas.style.setProperty(
+          '--motion-shake-x',
+          `${motionShakeRef.current.offsetX.toFixed(2)}px`,
+        );
+        canvas.style.setProperty(
+          '--motion-shake-y',
+          `${motionShakeRef.current.offsetY.toFixed(2)}px`,
+        );
+      }
+
+      motionAnimationFrame = window.requestAnimationFrame(animateMotionShake);
+    };
+
+    motionShakeRef.current = createMotionShakeState();
+    window.addEventListener('devicemotion', handleDeviceMotion, { passive: true });
+    animateMotionShake();
+
+    return () => {
+      window.removeEventListener('devicemotion', handleDeviceMotion);
+      window.cancelAnimationFrame(motionAnimationFrame);
+      motionSampleRef.current = null;
+      motionShakeRef.current = createMotionShakeState();
+      resetCanvasMotionStyle();
+    };
+  }, [motionShakeStatus, resetCanvasMotionStyle]);
+
   const resetSimulation = (nextParams: ReactionDiffusionParams, nextSeedMode: SeedMode) => {
     setParams(nextParams);
     setSeedMode(nextSeedMode);
@@ -159,6 +319,40 @@ function App() {
 
   const handleScaleChange = (scale: number) => {
     setScalePercent(scale);
+  };
+
+  const handleMotionShakeToggle = async () => {
+    if (motionShakeStatus === 'active') {
+      setMotionShakeStatus('idle');
+      return;
+    }
+
+    if (!isMotionControlVisible) {
+      return;
+    }
+
+    const deviceMotionEvent = getDeviceMotionEventConstructor();
+
+    if (!deviceMotionEvent) {
+      setMotionShakeStatus('unavailable');
+      return;
+    }
+
+    if (typeof deviceMotionEvent.requestPermission === 'function') {
+      try {
+        const permission = await deviceMotionEvent.requestPermission();
+
+        if (permission !== 'granted') {
+          setMotionShakeStatus('denied');
+          return;
+        }
+      } catch {
+        setMotionShakeStatus('denied');
+        return;
+      }
+    }
+
+    setMotionShakeStatus('active');
   };
 
   const handleRandomize = () => {
@@ -256,6 +450,7 @@ function App() {
   };
 
   const isPresentationView = isFullscreen || isCanvasView;
+  const isMotionShakeActive = motionShakeStatus === 'active';
 
   return (
     <main className={isCanvasView ? 'app-shell app-shell--canvas-view' : 'app-shell'}>
@@ -279,6 +474,7 @@ function App() {
             resetKey={resetKey}
             seedMode={seedMode}
             simulationSize={simulationSize}
+            isMotionShakeActive={isMotionShakeActive}
           />
           {isCanvasView && (
             <button
@@ -415,6 +611,30 @@ function App() {
               {simulationSize.width} x {simulationSize.height}px
             </span>
           </label>
+
+          {isMotionControlVisible && (
+            <div className="motion-control" aria-label="Phone motion canvas shake">
+              <span className="motion-control__label">
+                Phone motion{' '}
+                <strong aria-live="polite">
+                  {MOTION_SHAKE_STATUS_LABEL[motionShakeStatus]}
+                </strong>
+              </span>
+              <button
+                type="button"
+                onClick={handleMotionShakeToggle}
+                disabled={motionShakeStatus === 'unavailable'}
+                aria-pressed={isMotionShakeActive}
+                aria-label={
+                  isMotionShakeActive
+                    ? 'Disable phone motion canvas shake'
+                    : 'Enable phone motion canvas shake'
+                }
+              >
+                {isMotionShakeActive ? 'Stop Shake' : 'Enable Shake'}
+              </button>
+            </div>
+          )}
 
           <div className="preset-actions">
             <button type="button" onClick={handleSavePreset}>

@@ -176,6 +176,9 @@ h2 {
 }
 
 .simulation-canvas {
+  --motion-shake-x: 0px;
+  --motion-shake-y: 0px;
+  --motion-shake-scale: 1;
   display: block;
   width: min(100%, 720px);
   aspect-ratio: 1 / 1;
@@ -187,6 +190,14 @@ h2 {
   box-shadow:
     0 0 0 8px rgba(84, 216, 199, 0.05),
     0 26px 80px rgba(84, 216, 199, 0.13);
+  transform: translate3d(var(--motion-shake-x), var(--motion-shake-y), 0)
+    scale(var(--motion-shake-scale));
+  transform-origin: center;
+  will-change: transform;
+}
+
+.simulation-canvas--motion-shake {
+  --motion-shake-scale: 1.015;
 }
 
 .simulation-canvas:fullscreen {
@@ -289,6 +300,33 @@ select {
   font-size: 0.78rem;
   font-weight: 700;
   text-align: right;
+}
+
+.motion-control {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.8rem;
+  border: 1px solid rgba(84, 216, 199, 0.18);
+  background: rgba(84, 216, 199, 0.06);
+}
+
+.motion-control__label {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.motion-control__label strong {
+  color: var(--accent-strong);
+  font-size: 0.92rem;
+}
+
+.motion-control button {
+  width: 100%;
+  padding: 0.65rem 0.8rem;
 }
 
 .preset-description {
