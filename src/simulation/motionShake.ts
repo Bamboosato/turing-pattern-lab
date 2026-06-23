@@ -15,6 +15,11 @@ export type MotionShakeState = {
 };
 
 export const MOTION_SHAKE_MAX_IMPULSE = 1;
+export const MOTION_SENSITIVITY_RANGE = {
+  min: 50,
+  max: 200,
+  step: 10,
+} as const;
 
 const MOTION_SHAKE_DEAD_ZONE = 0.28;
 const MOTION_SHAKE_GAIN = 0.14;
@@ -35,14 +40,15 @@ function finiteOrZero(value: number | null | undefined) {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
-function applyDeadZone(value: number) {
+function applySensitivityDeadZone(value: number, sensitivityMultiplier: number) {
+  const deadZone = MOTION_SHAKE_DEAD_ZONE / sensitivityMultiplier;
   const magnitude = Math.abs(value);
 
-  if (magnitude < MOTION_SHAKE_DEAD_ZONE) {
+  if (magnitude < deadZone) {
     return 0;
   }
 
-  return Math.sign(value) * (magnitude - MOTION_SHAKE_DEAD_ZONE);
+  return Math.sign(value) * (magnitude - deadZone);
 }
 
 function snapSmallOffset(value: number) {
@@ -87,12 +93,22 @@ export function createMotionShakeState(): MotionShakeState {
   };
 }
 
+export function clampMotionSensitivityPercent(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 100;
+  }
+
+  return clamp(value, MOTION_SENSITIVITY_RANGE.min, MOTION_SENSITIVITY_RANGE.max);
+}
+
 export function updateMotionShakeState(
   current: MotionShakeState,
   sample: MotionShakeSample,
+  sensitivityPercent = 100,
 ): MotionShakeState {
   const x = finiteOrZero(sample.x);
   const y = finiteOrZero(sample.y);
+  const sensitivityMultiplier = clampMotionSensitivityPercent(sensitivityPercent) / 100;
 
   if (!current.hasSample) {
     return {
@@ -103,10 +119,18 @@ export function updateMotionShakeState(
     };
   }
 
-  const jerkX = applyDeadZone(x - current.lastX);
-  const jerkY = applyDeadZone(y - current.lastY);
-  const targetX = clamp(jerkX * MOTION_SHAKE_GAIN, -MOTION_SHAKE_MAX_IMPULSE, MOTION_SHAKE_MAX_IMPULSE);
-  const targetY = clamp(jerkY * MOTION_SHAKE_GAIN, -MOTION_SHAKE_MAX_IMPULSE, MOTION_SHAKE_MAX_IMPULSE);
+  const jerkX = applySensitivityDeadZone(x - current.lastX, sensitivityMultiplier);
+  const jerkY = applySensitivityDeadZone(y - current.lastY, sensitivityMultiplier);
+  const targetX = clamp(
+    jerkX * MOTION_SHAKE_GAIN * sensitivityMultiplier,
+    -MOTION_SHAKE_MAX_IMPULSE,
+    MOTION_SHAKE_MAX_IMPULSE,
+  );
+  const targetY = clamp(
+    jerkY * MOTION_SHAKE_GAIN * sensitivityMultiplier,
+    -MOTION_SHAKE_MAX_IMPULSE,
+    MOTION_SHAKE_MAX_IMPULSE,
+  );
   const targetStrength = clamp(Math.hypot(targetX, targetY), 0, MOTION_SHAKE_MAX_IMPULSE);
   const impulseX = blendValue(current.impulseX, targetX);
   const impulseY = blendValue(current.impulseY, targetY);

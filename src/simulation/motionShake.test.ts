@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   MOTION_SHAKE_MAX_IMPULSE,
   applyMotionShakeDisturbance,
+  clampMotionSensitivityPercent,
   createMotionShakeState,
   settleMotionShakeState,
   updateMotionShakeState,
@@ -29,6 +30,23 @@ describe('motion shake state', () => {
     expect(moved.strength).toBeGreaterThan(0);
     expect(Math.abs(moved.impulseX)).toBeLessThanOrEqual(MOTION_SHAKE_MAX_IMPULSE);
     expect(Math.abs(moved.impulseY)).toBeLessThanOrEqual(MOTION_SHAKE_MAX_IMPULSE);
+  });
+
+  it('scales response strength with the motion sensitivity setting', () => {
+    const baseline = updateMotionShakeState(createMotionShakeState(), { x: 0, y: 0 });
+    const low = updateMotionShakeState(baseline, { x: 1, y: 0 }, 50);
+    const normal = updateMotionShakeState(baseline, { x: 1, y: 0 }, 100);
+    const high = updateMotionShakeState(baseline, { x: 1, y: 0 }, 200);
+
+    expect(low.strength).toBeLessThan(normal.strength);
+    expect(normal.strength).toBeLessThan(high.strength);
+  });
+
+  it('clamps motion sensitivity to the supported slider range', () => {
+    expect(clampMotionSensitivityPercent(25)).toBe(50);
+    expect(clampMotionSensitivityPercent(100)).toBe(100);
+    expect(clampMotionSensitivityPercent(250)).toBe(200);
+    expect(clampMotionSensitivityPercent(Number.NaN)).toBe(100);
   });
 
   it('decays motion impulses back toward rest when no new sample arrives', () => {
