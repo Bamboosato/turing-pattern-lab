@@ -25,6 +25,7 @@ type SimulationCanvasProps = {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   params: ReactionDiffusionParams;
   isPaused: boolean;
+  isMotionShakeActive: boolean;
   resetKey: number;
   seedMode: SeedMode;
   simulationSize: SimulationSize;
@@ -34,6 +35,7 @@ export function SimulationCanvas({
   canvasRef,
   params,
   isPaused,
+  isMotionShakeActive,
   resetKey,
   seedMode,
   simulationSize,
@@ -280,7 +282,11 @@ export function SimulationCanvas({
   return (
     <canvas
       ref={canvasRef}
-      className="simulation-canvas"
+      className={
+        isMotionShakeActive
+          ? 'simulation-canvas simulation-canvas--motion-shake'
+          : 'simulation-canvas'
+      }
       aria-label="Animated Gray-Scott reaction-diffusion pattern"
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
