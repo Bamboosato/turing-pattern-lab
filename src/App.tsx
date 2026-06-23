@@ -18,8 +18,15 @@ import {
   type SimulationSize,
 } from './simulation/size';
 import {
+  MOTION_SENSITIVITY_RANGE,
   type MotionShakeSample,
 } from './simulation/motionShake';
+import {
+  DEFAULT_PATTERN_PALETTE,
+  isDefaultPatternPalette,
+  normalizeHexColor,
+  type PatternPalette,
+} from './simulation/palette';
 import type { ReactionDiffusionParams, SeedMode } from './simulation/types';
 
 const APP_CANVAS_VIEW_QUERY = '(max-width: 820px), (pointer: coarse)';
@@ -88,10 +95,13 @@ function App() {
   const [baseSimulationSize, setBaseSimulationSize] =
     useState<SimulationSize>(NORMAL_SIMULATION_SIZE);
   const [scalePercent, setScalePercent] = useState(100);
+  const [patternPalette, setPatternPalette] =
+    useState<PatternPalette>(DEFAULT_PATTERN_PALETTE);
   const [resetKey, setResetKey] = useState(0);
   const [motionShakeStatus, setMotionShakeStatus] =
     useState<MotionShakeStatus>('unavailable');
   const [isMotionControlVisible, setIsMotionControlVisible] = useState(false);
+  const [motionSensitivityPercent, setMotionSensitivityPercent] = useState(100);
 
   const selectablePresets = useMemo(
     () => [...patternPresets, ...userPresets],
@@ -273,6 +283,23 @@ function App() {
     setScalePercent(scale);
   };
 
+  const handlePaletteChange = (key: keyof PatternPalette, color: string) => {
+    const normalizedColor = normalizeHexColor(color);
+
+    if (!normalizedColor) {
+      return;
+    }
+
+    setPatternPalette((current) => ({
+      ...current,
+      [key]: normalizedColor,
+    }));
+  };
+
+  const handlePaletteReset = () => {
+    setPatternPalette(DEFAULT_PATTERN_PALETTE);
+  };
+
   const handleMotionShakeToggle = async () => {
     if (motionShakeStatus === 'active') {
       setMotionShakeStatus('idle');
@@ -305,6 +332,10 @@ function App() {
     }
 
     setMotionShakeStatus('active');
+  };
+
+  const handleMotionSensitivityChange = (sensitivityPercent: number) => {
+    setMotionSensitivityPercent(sensitivityPercent);
   };
 
   const handleRandomize = () => {
@@ -403,6 +434,7 @@ function App() {
 
   const isPresentationView = isFullscreen || isCanvasView;
   const isMotionShakeActive = motionShakeStatus === 'active';
+  const isDefaultPalette = isDefaultPatternPalette(patternPalette);
 
   return (
     <main className={isCanvasView ? 'app-shell app-shell--canvas-view' : 'app-shell'}>
@@ -424,10 +456,13 @@ function App() {
             params={params}
             isPaused={isPaused}
             resetKey={resetKey}
+            scalePercent={scalePercent}
             seedMode={seedMode}
             simulationSize={simulationSize}
             isMotionShakeActive={isMotionShakeActive}
             motionSampleRef={motionSampleRef}
+            motionSensitivityPercent={motionSensitivityPercent}
+            palette={patternPalette}
           />
           {isCanvasView && (
             <button
@@ -565,6 +600,54 @@ function App() {
             </span>
           </label>
 
+          <div className="preset-actions">
+            <button type="button" onClick={handleSavePreset}>
+              Save Preset
+            </button>
+            {selectedPresetId && isUserPresetId(selectedPresetId) && (
+              <button
+                type="button"
+                className="danger-action"
+                onClick={handleDeletePreset}
+                disabled={!selectedUserPreset}
+              >
+                Delete Preset
+              </button>
+            )}
+          </div>
+
+          <div className="palette-control" aria-label="Pattern colors">
+            <label className="color-field">
+              <span>
+                Background <strong>{patternPalette.background.toUpperCase()}</strong>
+              </span>
+              <input
+                type="color"
+                value={patternPalette.background}
+                onChange={(event) => handlePaletteChange('background', event.target.value)}
+                onInput={(event) =>
+                  handlePaletteChange('background', event.currentTarget.value)
+                }
+                aria-label="Background color"
+              />
+            </label>
+            <label className="color-field">
+              <span>
+                Material <strong>{patternPalette.material.toUpperCase()}</strong>
+              </span>
+              <input
+                type="color"
+                value={patternPalette.material}
+                onChange={(event) => handlePaletteChange('material', event.target.value)}
+                onInput={(event) => handlePaletteChange('material', event.currentTarget.value)}
+                aria-label="Material color"
+              />
+            </label>
+            <button type="button" onClick={handlePaletteReset} disabled={isDefaultPalette}>
+              Reset Colors
+            </button>
+          </div>
+
           {isMotionControlVisible && (
             <div className="motion-control" aria-label="Phone motion pattern disturbance">
               <span className="motion-control__label">
@@ -586,24 +669,24 @@ function App() {
               >
                 {isMotionShakeActive ? 'Stop Shake' : 'Enable Shake'}
               </button>
+              <label className="motion-sensitivity">
+                <span>
+                  Sensitivity <strong>{motionSensitivityPercent}%</strong>
+                </span>
+                <input
+                  type="range"
+                  min={MOTION_SENSITIVITY_RANGE.min}
+                  max={MOTION_SENSITIVITY_RANGE.max}
+                  step={MOTION_SENSITIVITY_RANGE.step}
+                  value={motionSensitivityPercent}
+                  onChange={(event) =>
+                    handleMotionSensitivityChange(Number(event.target.value))
+                  }
+                  aria-label="Phone motion sensitivity"
+                />
+              </label>
             </div>
           )}
-
-          <div className="preset-actions">
-            <button type="button" onClick={handleSavePreset}>
-              Save Preset
-            </button>
-            {selectedPresetId && isUserPresetId(selectedPresetId) && (
-              <button
-                type="button"
-                className="danger-action"
-                onClick={handleDeletePreset}
-                disabled={!selectedUserPreset}
-              >
-                Delete Preset
-              </button>
-            )}
-          </div>
 
           <div className="button-row">
             <button type="button" onClick={handleRandomize}>
@@ -636,6 +719,12 @@ function App() {
           so the same rules can become spots, stripes, branching forms, or maze-like paths.
         </p>
       </section>
+
+      {!isPresentationView && (
+        <footer className="app-footer" aria-label="Application version">
+          © 2026 Bamboosato  v1.0.0
+        </footer>
+      )}
     </main>
   );
 }

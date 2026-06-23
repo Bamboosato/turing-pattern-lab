@@ -1,18 +1,28 @@
 import type { SimulationState } from './types';
+import {
+  DEFAULT_PATTERN_PALETTE,
+  getPaletteColors,
+  mixRgbColors,
+  type PatternPalette,
+} from './palette';
 
-export function writePatternImageData(state: SimulationState, imageData: ImageData): void {
+export function writePatternImageData(
+  state: SimulationState,
+  imageData: ImageData,
+  palette: PatternPalette = DEFAULT_PATTERN_PALETTE,
+): void {
   const pixels = imageData.data;
+  const colors = getPaletteColors(palette);
 
   for (let index = 0; index < state.b.length; index += 1) {
     const b = state.b[index];
-    const a = state.a[index];
-    const contrast = Math.max(0, Math.min(1, (b - 0.12) * 4.4));
-    const heat = Math.max(0, Math.min(1, (a - b) * 1.2));
+    const intensity = Math.max(0, Math.min(1, (b - 0.12) * 4.4));
+    const color = mixRgbColors(colors.background, colors.material, intensity);
     const pixelIndex = index * 4;
 
-    pixels[pixelIndex] = Math.round(18 + contrast * 28 + heat * 212);
-    pixels[pixelIndex + 1] = Math.round(20 + contrast * 202 + heat * 156);
-    pixels[pixelIndex + 2] = Math.round(26 + contrast * 183 + (1 - heat) * 30);
+    pixels[pixelIndex] = color.r;
+    pixels[pixelIndex + 1] = color.g;
+    pixels[pixelIndex + 2] = color.b;
     pixels[pixelIndex + 3] = 255;
   }
 }

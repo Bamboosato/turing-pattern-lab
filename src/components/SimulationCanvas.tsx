@@ -15,7 +15,9 @@ import {
   updateMotionShakeState,
   type MotionShakeSample,
 } from '../simulation/motionShake';
+import { getGestureBrushRadius } from '../simulation/brushSize';
 import { writePatternImageData } from '../simulation/render';
+import type { PatternPalette } from '../simulation/palette';
 import type { SimulationSize } from '../simulation/size';
 import type { ReactionDiffusionParams, SeedMode, SimulationState } from '../simulation/types';
 
@@ -34,7 +36,10 @@ type SimulationCanvasProps = {
   isPaused: boolean;
   isMotionShakeActive: boolean;
   motionSampleRef: RefObject<MotionShakeSample | null>;
+  motionSensitivityPercent: number;
+  palette: PatternPalette;
   resetKey: number;
+  scalePercent: number;
   seedMode: SeedMode;
   simulationSize: SimulationSize;
 };
@@ -45,12 +50,17 @@ export function SimulationCanvas({
   isPaused,
   isMotionShakeActive,
   motionSampleRef,
+  motionSensitivityPercent,
+  palette,
   resetKey,
+  scalePercent,
   seedMode,
   simulationSize,
 }: SimulationCanvasProps) {
   const paramsRef = useRef(params);
   const pausedRef = useRef(isPaused);
+  const paletteRef = useRef(palette);
+  const motionSensitivityRef = useRef(motionSensitivityPercent);
   const motionShakeActiveRef = useRef(isMotionShakeActive);
   const motionShakeRef = useRef(createMotionShakeState());
   const stateRef = useRef<SimulationState | null>(null);
@@ -68,6 +78,14 @@ export function SimulationCanvas({
   useEffect(() => {
     pausedRef.current = isPaused;
   }, [isPaused]);
+
+  useEffect(() => {
+    paletteRef.current = palette;
+  }, [palette]);
+
+  useEffect(() => {
+    motionSensitivityRef.current = motionSensitivityPercent;
+  }, [motionSensitivityPercent]);
 
   useEffect(() => {
     motionShakeActiveRef.current = isMotionShakeActive;
@@ -112,7 +130,7 @@ export function SimulationCanvas({
       return;
     }
 
-    const radius = Math.max(5, Math.round(Math.min(state.width, state.height) * 0.028));
+    const radius = getGestureBrushRadius(state, scalePercent);
     const spacing = Math.max(1, radius * 0.45);
 
     if (!from) {
@@ -135,7 +153,7 @@ export function SimulationCanvas({
     }
 
     lastBrushInputAtRef.current = Date.now();
-  }, []);
+  }, [scalePercent]);
 
   const handlePointerDown = useCallback(
     (event: PointerEvent<HTMLCanvasElement>) => {
@@ -294,7 +312,11 @@ export function SimulationCanvas({
           const sample = motionSampleRef.current;
           motionSampleRef.current = null;
           motionShakeRef.current = sample
-            ? updateMotionShakeState(motionShakeRef.current, sample)
+            ? updateMotionShakeState(
+                motionShakeRef.current,
+                sample,
+                motionSensitivityRef.current,
+              )
             : settleMotionShakeState(motionShakeRef.current);
           applyMotionShakeDisturbance(state, motionShakeRef.current);
         }
@@ -303,7 +325,7 @@ export function SimulationCanvas({
           stepSimulation(state, paramsRef.current, STEPS_PER_FRAME);
         }
 
-        writePatternImageData(state, imageData);
+        writePatternImageData(state, imageData, paletteRef.current);
         context.putImageData(imageData, 0, 0);
       }
 
