@@ -293,10 +293,15 @@ function App() {
     setSelectedPresetId(preset.id);
     resetSimulation(preset.params, preset.seedMode);
 
-    const savedPalette = userPresets.find((userPreset) => userPreset.id === preset.id)?.palette;
+    const savedUserPreset = userPresets.find((userPreset) => userPreset.id === preset.id);
+    const savedPalette = savedUserPreset?.palette;
 
     if (savedPalette) {
       setPatternPalette(savedPalette);
+    }
+
+    if (typeof savedUserPreset?.scalePercent === 'number') {
+      setScalePercent(savedUserPreset.scalePercent);
     }
   };
 
@@ -400,6 +405,7 @@ function App() {
       params,
       seedMode,
       palette: patternPalette,
+      scalePercent,
     });
 
     setUserPresets((current) => [...current, userPreset]);

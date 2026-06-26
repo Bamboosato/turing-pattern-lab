@@ -38,6 +38,7 @@ describe('user presets', () => {
         background: '#ABCDEF',
         material: ' #123456 ',
       },
+      scalePercent: 150,
       now: () => 123456,
       random: () => 0.5,
     });
@@ -51,6 +52,7 @@ describe('user presets', () => {
       background: '#abcdef',
       material: '#123456',
     });
+    expect(preset.scalePercent).toBe(150);
     expect(preset.description).toContain('Feed 0.0340');
   });
 
@@ -118,6 +120,32 @@ describe('user presets', () => {
     ).toEqual([preset]);
   });
 
+  it('ignores invalid saved scale values without dropping the preset', () => {
+    const preset = createUserPreset({
+      name: 'Scale damaged',
+      params: {
+        feed: 0.034,
+        kill: 0.062,
+        diffA: 1,
+        diffB: 0.5,
+      },
+      seedMode: 'spots',
+      now: () => 5,
+      random: () => 0.5,
+    });
+
+    expect(
+      parseUserPresets(
+        JSON.stringify([
+          {
+            ...preset,
+            scalePercent: 205,
+          },
+        ]),
+      ),
+    ).toEqual([preset]);
+  });
+
   it('saves and loads presets through storage', () => {
     const storage = createMemoryStorage();
     const preset = createUserPreset({
@@ -133,6 +161,7 @@ describe('user presets', () => {
         background: '#111111',
         material: '#eeeeee',
       },
+      scalePercent: 200,
       now: () => 2,
       random: () => 0.2,
     });
