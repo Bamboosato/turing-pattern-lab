@@ -49,6 +49,24 @@ function shouldUseAppCanvasView() {
   return window.matchMedia(APP_CANVAS_VIEW_QUERY).matches;
 }
 
+function getPresentationViewportSize(canvas: HTMLCanvasElement | null): SimulationSize {
+  const rect = canvas?.getBoundingClientRect();
+
+  if (rect && rect.width > 0 && rect.height > 0) {
+    return {
+      width: rect.width,
+      height: rect.height,
+    };
+  }
+
+  const visualViewport = window.visualViewport;
+
+  return {
+    width: visualViewport?.width ?? window.innerWidth,
+    height: visualViewport?.height ?? window.innerHeight,
+  };
+}
+
 function getDeviceMotionEventConstructor() {
   if (typeof window.DeviceMotionEvent === 'undefined') {
     return null;
@@ -125,29 +143,46 @@ function App() {
 
   useEffect(() => {
     const syncFullscreenState = () => {
-      const canvasIsFullscreen = document.fullscreenElement === canvasRef.current;
+      const canvas = canvasRef.current;
+      const canvasIsFullscreen = Boolean(canvas && document.fullscreenElement === canvas);
       const shouldUseViewportSize = canvasIsFullscreen || isCanvasView;
+      const viewportSize = shouldUseViewportSize
+        ? getPresentationViewportSize(canvas)
+        : NORMAL_SIMULATION_SIZE;
       const nextBaseSimulationSize = shouldUseViewportSize
-        ? getFullscreenSimulationSize(window.innerWidth, window.innerHeight)
+        ? getFullscreenSimulationSize(viewportSize.width, viewportSize.height)
         : NORMAL_SIMULATION_SIZE;
 
       setIsFullscreen(canvasIsFullscreen);
-      setCanFullscreen(Boolean(canvasRef.current));
+      setCanFullscreen(Boolean(canvas));
       setBaseSimulationSize((current) =>
         current.width === nextBaseSimulationSize.width &&
         current.height === nextBaseSimulationSize.height
           ? current
-          : nextBaseSimulationSize,
+        : nextBaseSimulationSize,
       );
     };
 
+    const resizeObserver =
+      typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(syncFullscreenState);
+
+    if (canvasRef.current) {
+      resizeObserver?.observe(canvasRef.current);
+    }
+
     syncFullscreenState();
+    const animationFrame = window.requestAnimationFrame(syncFullscreenState);
+
     document.addEventListener('fullscreenchange', syncFullscreenState);
     window.addEventListener('resize', syncFullscreenState);
+    window.visualViewport?.addEventListener('resize', syncFullscreenState);
 
     return () => {
+      window.cancelAnimationFrame(animationFrame);
+      resizeObserver?.disconnect();
       document.removeEventListener('fullscreenchange', syncFullscreenState);
       window.removeEventListener('resize', syncFullscreenState);
+      window.visualViewport?.removeEventListener('resize', syncFullscreenState);
     };
   }, [isCanvasView]);
 
