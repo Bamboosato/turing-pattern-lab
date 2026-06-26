@@ -212,8 +212,9 @@ h2 {
 
 .canvas-view-exit {
   position: fixed;
-  top: max(0.75rem, env(safe-area-inset-top));
-  right: max(0.75rem, env(safe-area-inset-right));
+  bottom: max(0.75rem, env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 1001;
   min-width: 4.25rem;
   padding: 0 0.85rem;
