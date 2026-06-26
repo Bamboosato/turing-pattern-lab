@@ -292,6 +292,12 @@ function App() {
 
     setSelectedPresetId(preset.id);
     resetSimulation(preset.params, preset.seedMode);
+
+    const savedPalette = userPresets.find((userPreset) => userPreset.id === preset.id)?.palette;
+
+    if (savedPalette) {
+      setPatternPalette(savedPalette);
+    }
   };
 
   const handleFeedChange = (feed: number) => {
@@ -393,6 +399,7 @@ function App() {
       name: requestedName || defaultName,
       params,
       seedMode,
+      palette: patternPalette,
     });
 
     setUserPresets((current) => [...current, userPreset]);

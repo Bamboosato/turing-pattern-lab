@@ -34,6 +34,10 @@ describe('user presets', () => {
         diffB: 0.5,
       },
       seedMode: 'spots',
+      palette: {
+        background: '#ABCDEF',
+        material: ' #123456 ',
+      },
       now: () => 123456,
       random: () => 0.5,
     });
@@ -43,6 +47,10 @@ describe('user presets', () => {
     expect(preset.params.feed).toBe(0.034);
     expect(preset.params.kill).toBe(0.062);
     expect(preset.seedMode).toBe('spots');
+    expect(preset.palette).toEqual({
+      background: '#abcdef',
+      material: '#123456',
+    });
     expect(preset.description).toContain('Feed 0.0340');
   });
 
@@ -64,6 +72,52 @@ describe('user presets', () => {
     expect(parseUserPresets('not-json')).toEqual([]);
   });
 
+  it('keeps legacy saved presets that do not include colors', () => {
+    const legacyPreset = createUserPreset({
+      name: 'Legacy',
+      params: {
+        feed: 0.029,
+        kill: 0.057,
+        diffA: 1,
+        diffB: 0.5,
+      },
+      seedMode: 'center',
+      now: () => 3,
+      random: () => 0.3,
+    });
+
+    expect(parseUserPresets(JSON.stringify([legacyPreset]))).toEqual([legacyPreset]);
+  });
+
+  it('ignores invalid saved colors without dropping the preset', () => {
+    const preset = createUserPreset({
+      name: 'Color damaged',
+      params: {
+        feed: 0.034,
+        kill: 0.062,
+        diffA: 1,
+        diffB: 0.5,
+      },
+      seedMode: 'spots',
+      now: () => 4,
+      random: () => 0.4,
+    });
+
+    expect(
+      parseUserPresets(
+        JSON.stringify([
+          {
+            ...preset,
+            palette: {
+              background: 'bad',
+              material: '#ffffff',
+            },
+          },
+        ]),
+      ),
+    ).toEqual([preset]);
+  });
+
   it('saves and loads presets through storage', () => {
     const storage = createMemoryStorage();
     const preset = createUserPreset({
@@ -75,6 +129,10 @@ describe('user presets', () => {
         diffB: 0.5,
       },
       seedMode: 'web',
+      palette: {
+        background: '#111111',
+        material: '#eeeeee',
+      },
       now: () => 2,
       random: () => 0.2,
     });

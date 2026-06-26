@@ -1,4 +1,5 @@
 import { BASE_DIFFUSION, FEED_RANGE, KILL_RANGE, clamp, roundParam } from '../simulation/random';
+import { normalizeHexColor, type PatternPalette } from '../simulation/palette';
 import type { ReactionDiffusionParams, SeedMode } from '../simulation/types';
 import type { PatternPreset } from './presets';
 
@@ -10,12 +11,14 @@ const SEED_MODES = new Set<SeedMode>(['center', 'stripe', 'spots', 'web', 'noise
 
 export type UserPreset = PatternPreset & {
   createdAt: number;
+  palette?: PatternPalette;
 };
 
 type UserPresetInput = {
   name: string;
   params: ReactionDiffusionParams;
   seedMode: SeedMode;
+  palette?: PatternPalette;
   now?: () => number;
   random?: () => number;
 };
@@ -34,11 +37,13 @@ export function createUserPreset({
   name,
   params,
   seedMode,
+  palette,
   now = Date.now,
   random = Math.random,
 }: UserPresetInput): UserPreset {
   const createdAt = now();
   const normalizedParams = normalizeParams(params);
+  const normalizedPalette = palette ? normalizePalette(palette) : null;
 
   return {
     id: `${USER_PRESET_ID_PREFIX}${createdAt.toString(36)}-${Math.floor(random() * 1_000_000).toString(36)}`,
@@ -47,6 +52,7 @@ export function createUserPreset({
     params: normalizedParams,
     seedMode,
     createdAt,
+    ...(normalizedPalette ? { palette: normalizedPalette } : {}),
   };
 }
 
@@ -126,6 +132,8 @@ function parseUserPreset(value: unknown): UserPreset | null {
     return null;
   }
 
+  const palette = parsePalette(value.palette);
+
   return {
     id: value.id,
     name: normalizeName(value.name) || 'Custom Pattern',
@@ -136,6 +144,36 @@ function parseUserPreset(value: unknown): UserPreset | null {
     params,
     seedMode: value.seedMode,
     createdAt: value.createdAt,
+    ...(palette ? { palette } : {}),
+  };
+}
+
+function parsePalette(value: unknown): PatternPalette | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  if (typeof value.background !== 'string' || typeof value.material !== 'string') {
+    return null;
+  }
+
+  return normalizePalette({
+    background: value.background,
+    material: value.material,
+  });
+}
+
+function normalizePalette(palette: PatternPalette): PatternPalette | null {
+  const background = normalizeHexColor(palette.background);
+  const material = normalizeHexColor(palette.material);
+
+  if (!background || !material) {
+    return null;
+  }
+
+  return {
+    background,
+    material,
   };
 }
 
