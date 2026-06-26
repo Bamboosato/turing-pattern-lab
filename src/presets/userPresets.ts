@@ -1,5 +1,6 @@
 import { BASE_DIFFUSION, FEED_RANGE, KILL_RANGE, clamp, roundParam } from '../simulation/random';
 import { normalizeHexColor, type PatternPalette } from '../simulation/palette';
+import { SIMULATION_SCALE_RANGE } from '../simulation/size';
 import type { ReactionDiffusionParams, SeedMode } from '../simulation/types';
 import type { PatternPreset } from './presets';
 
@@ -12,6 +13,7 @@ const SEED_MODES = new Set<SeedMode>(['center', 'stripe', 'spots', 'web', 'noise
 export type UserPreset = PatternPreset & {
   createdAt: number;
   palette?: PatternPalette;
+  scalePercent?: number;
 };
 
 type UserPresetInput = {
@@ -19,6 +21,7 @@ type UserPresetInput = {
   params: ReactionDiffusionParams;
   seedMode: SeedMode;
   palette?: PatternPalette;
+  scalePercent?: number;
   now?: () => number;
   random?: () => number;
 };
@@ -38,12 +41,14 @@ export function createUserPreset({
   params,
   seedMode,
   palette,
+  scalePercent,
   now = Date.now,
   random = Math.random,
 }: UserPresetInput): UserPreset {
   const createdAt = now();
   const normalizedParams = normalizeParams(params);
   const normalizedPalette = palette ? normalizePalette(palette) : null;
+  const normalizedScalePercent = parseScalePercent(scalePercent);
 
   return {
     id: `${USER_PRESET_ID_PREFIX}${createdAt.toString(36)}-${Math.floor(random() * 1_000_000).toString(36)}`,
@@ -53,6 +58,7 @@ export function createUserPreset({
     seedMode,
     createdAt,
     ...(normalizedPalette ? { palette: normalizedPalette } : {}),
+    ...(normalizedScalePercent ? { scalePercent: normalizedScalePercent } : {}),
   };
 }
 
@@ -133,6 +139,7 @@ function parseUserPreset(value: unknown): UserPreset | null {
   }
 
   const palette = parsePalette(value.palette);
+  const scalePercent = parseScalePercent(value.scalePercent);
 
   return {
     id: value.id,
@@ -145,7 +152,30 @@ function parseUserPreset(value: unknown): UserPreset | null {
     seedMode: value.seedMode,
     createdAt: value.createdAt,
     ...(palette ? { palette } : {}),
+    ...(scalePercent ? { scalePercent } : {}),
   };
+}
+
+function parseScalePercent(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return null;
+  }
+
+  const roundedValue = Math.round(value);
+
+  if (Math.abs(value - roundedValue) > Number.EPSILON) {
+    return null;
+  }
+
+  if (
+    roundedValue < SIMULATION_SCALE_RANGE.min ||
+    roundedValue > SIMULATION_SCALE_RANGE.max ||
+    (roundedValue - SIMULATION_SCALE_RANGE.min) % SIMULATION_SCALE_RANGE.step !== 0
+  ) {
+    return null;
+  }
+
+  return roundedValue;
 }
 
 function parsePalette(value: unknown): PatternPalette | null {
