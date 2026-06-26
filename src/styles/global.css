@@ -236,9 +236,17 @@ h2 {
   z-index: 1001;
   min-width: 4.25rem;
   padding: 0 0.85rem;
-  border-color: rgba(247, 239, 226, 0.24);
-  background: rgba(20, 18, 23, 0.82);
-  backdrop-filter: blur(12px);
+  border-color: rgba(247, 239, 226, 0.18);
+  background: transparent;
+  color: rgba(247, 239, 226, 0.72);
+  opacity: 0.76;
+}
+
+.canvas-view-exit:hover,
+.canvas-view-exit:focus-visible {
+  border-color: rgba(247, 239, 226, 0.36);
+  color: var(--text);
+  opacity: 1;
 }
 
 .control-panel {
