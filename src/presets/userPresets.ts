@@ -1,5 +1,6 @@
 import { BASE_DIFFUSION, FEED_RANGE, KILL_RANGE, clamp, roundParam } from '../simulation/random';
 import { normalizeHexColor, type PatternPalette } from '../simulation/palette';
+import { isSeedMode } from '../simulation/seedModes';
 import { SIMULATION_SCALE_RANGE } from '../simulation/size';
 import type { ReactionDiffusionParams, SeedMode } from '../simulation/types';
 import type { PatternPreset } from './presets';
@@ -8,7 +9,6 @@ export const USER_PRESETS_STORAGE_KEY = 'turing-pattern-lab:user-presets:v1';
 
 const USER_PRESET_ID_PREFIX = 'user:';
 const MAX_USER_PRESETS = 30;
-const SEED_MODES = new Set<SeedMode>(['center', 'stripe', 'spots', 'web', 'noise']);
 
 export type UserPreset = PatternPreset & {
   createdAt: number;
@@ -248,10 +248,6 @@ function normalizeName(name: string): string {
 
 function isValidUserPreset(preset: UserPreset): boolean {
   return Boolean(parseUserPreset(preset));
-}
-
-function isSeedMode(value: unknown): value is SeedMode {
-  return typeof value === 'string' && SEED_MODES.has(value as SeedMode);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

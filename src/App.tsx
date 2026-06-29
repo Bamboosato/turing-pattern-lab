@@ -27,6 +27,7 @@ import {
   normalizeHexColor,
   type PatternPalette,
 } from './simulation/palette';
+import { SEED_MODE_OPTIONS, isSeedMode } from './simulation/seedModes';
 import type { ReactionDiffusionParams, SeedMode } from './simulation/types';
 
 const APP_CANVAS_VIEW_QUERY = '(max-width: 820px), (pointer: coarse)';
@@ -303,6 +304,15 @@ function App() {
     if (typeof savedUserPreset?.scalePercent === 'number') {
       setScalePercent(savedUserPreset.scalePercent);
     }
+  };
+
+  const handleSeedModeChange = (value: string) => {
+    if (!isSeedMode(value)) {
+      return;
+    }
+
+    setSelectedPresetId(null);
+    resetSimulation(params, value);
   };
 
   const handleFeedChange = (feed: number) => {
@@ -675,6 +685,21 @@ function App() {
             <span className="scale-detail" aria-live="polite">
               {simulationSize.width} x {simulationSize.height}px
             </span>
+          </label>
+
+          <label className="field">
+            <span>Seed</span>
+            <select
+              value={seedMode}
+              onChange={(event) => handleSeedModeChange(event.target.value)}
+              aria-label="Initial seed pattern"
+            >
+              {SEED_MODE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </label>
 
           <div className="palette-control" aria-label="Pattern colors">

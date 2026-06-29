@@ -16,8 +16,9 @@ Core features:
 
 - Real-time Turing pattern generation
 - Preset pattern selection
-- Save and delete local user presets with colors and scale
+- Save and delete local user presets with seed, colors, and scale
 - Feed and Kill parameter sliders
+- Seed initial-pattern selector
 - Simulation scale slider from 50% to 200%
 - Random pattern generation
 - Pause and resume
@@ -57,7 +58,7 @@ npm run test
 
 ## Current MVP
 
-The current implementation includes a Gray-Scott Canvas simulation, five natural-pattern presets, local user preset saving with current colors and scale, Feed/Kill sliders, 50%-200% simulation scale control, background/material color controls, random generation, pause/resume, PNG export, tap and drag gesture injection, phone motion pattern disturbance with sensitivity control on supported mobile browsers, an edge-to-edge mobile Canvas View with safe-area-aware controls, a responsive layout, a short educational explanation, and the normal-screen version footer.
+The current implementation includes a Gray-Scott Canvas simulation, five natural-pattern presets, local user preset saving with current seed, colors, and scale, Feed/Kill sliders, a Seed initial-pattern selector, 50%-200% simulation scale control, background/material color controls, random generation, pause/resume, PNG export, tap and drag gesture injection, phone motion pattern disturbance with sensitivity control on supported mobile browsers, an edge-to-edge mobile Canvas View with safe-area-aware controls, a responsive layout, a short educational explanation, and the normal-screen version footer.
 
 ## Documentation
 
