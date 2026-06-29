@@ -421,6 +421,15 @@ select {
   border-bottom: 1px solid var(--line);
 }
 
+.preset-control-actions {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.preset-control-actions button {
+  padding: 0.65rem 0.8rem;
+}
+
 .preset-actions {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
