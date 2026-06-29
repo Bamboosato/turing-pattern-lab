@@ -390,6 +390,10 @@ function App() {
     resetSimulation(randomPattern.params, randomPattern.seedMode);
   };
 
+  const handleRestart = () => {
+    resetSimulation(params, seedMode);
+  };
+
   const handleSavePreset = () => {
     const defaultName = selectedPreset
       ? `${selectedPreset.name} Custom`
@@ -524,6 +528,15 @@ function App() {
         </div>
 
         <aside className="control-panel" aria-label="Simulation controls">
+          <div className="preset-control-actions" aria-label="Preset quick actions">
+            <button type="button" onClick={handleRandomize}>
+              Random
+            </button>
+            <button type="button" onClick={handleRestart}>
+              Restart
+            </button>
+          </div>
+
           <label className="field">
             <span>Preset</span>
             <select
@@ -557,6 +570,22 @@ function App() {
             {selectedPreset?.description ??
               'Current settings are not saved as a preset yet.'}
           </p>
+
+          <div className="preset-actions">
+            <button type="button" onClick={handleSavePreset}>
+              Save Preset
+            </button>
+            {selectedPresetId && isUserPresetId(selectedPresetId) && (
+              <button
+                type="button"
+                className="danger-action"
+                onClick={handleDeletePreset}
+                disabled={!selectedUserPreset}
+              >
+                Delete Preset
+              </button>
+            )}
+          </div>
 
           <label className="field range-field">
             <span>
@@ -648,22 +677,6 @@ function App() {
             </span>
           </label>
 
-          <div className="preset-actions">
-            <button type="button" onClick={handleSavePreset}>
-              Save Preset
-            </button>
-            {selectedPresetId && isUserPresetId(selectedPresetId) && (
-              <button
-                type="button"
-                className="danger-action"
-                onClick={handleDeletePreset}
-                disabled={!selectedUserPreset}
-              >
-                Delete Preset
-              </button>
-            )}
-          </div>
-
           <div className="palette-control" aria-label="Pattern colors">
             <label className="color-field">
               <span>
@@ -737,9 +750,6 @@ function App() {
           )}
 
           <div className="button-row">
-            <button type="button" onClick={handleRandomize}>
-              Random
-            </button>
             <button type="button" onClick={() => setIsPaused((current) => !current)}>
               {isPaused ? 'Resume' : 'Pause'}
             </button>
