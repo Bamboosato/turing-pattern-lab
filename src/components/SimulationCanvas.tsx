@@ -7,6 +7,14 @@ import {
   type RefObject,
 } from 'react';
 import { injectActivator } from '../simulation/brush';
+import {
+  applyAudioNoiseDisturbance,
+  createAudioNoiseState,
+  getAudioNoiseModulatedParams,
+  settleAudioNoiseState,
+  updateAudioNoiseState,
+  type AudioNoiseSample,
+} from '../simulation/audioNoise';
 import { createSimulationState, stepSimulation } from '../simulation/grayScott';
 import {
   applyMotionShakeDisturbance,
@@ -34,6 +42,9 @@ type SimulationCanvasProps = {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   params: ReactionDiffusionParams;
   isPaused: boolean;
+  isAudioNoiseActive: boolean;
+  audioSampleRef: RefObject<AudioNoiseSample | null>;
+  audioSensitivityPercent: number;
   isMotionShakeActive: boolean;
   motionSampleRef: RefObject<MotionShakeSample | null>;
   motionSensitivityPercent: number;
@@ -48,6 +59,9 @@ export function SimulationCanvas({
   canvasRef,
   params,
   isPaused,
+  isAudioNoiseActive,
+  audioSampleRef,
+  audioSensitivityPercent,
   isMotionShakeActive,
   motionSampleRef,
   motionSensitivityPercent,
@@ -60,6 +74,9 @@ export function SimulationCanvas({
   const paramsRef = useRef(params);
   const pausedRef = useRef(isPaused);
   const paletteRef = useRef(palette);
+  const audioSensitivityRef = useRef(audioSensitivityPercent);
+  const audioNoiseActiveRef = useRef(isAudioNoiseActive);
+  const audioNoiseRef = useRef(createAudioNoiseState());
   const motionSensitivityRef = useRef(motionSensitivityPercent);
   const motionShakeActiveRef = useRef(isMotionShakeActive);
   const motionShakeRef = useRef(createMotionShakeState());
@@ -82,6 +99,19 @@ export function SimulationCanvas({
   useEffect(() => {
     paletteRef.current = palette;
   }, [palette]);
+
+  useEffect(() => {
+    audioSensitivityRef.current = audioSensitivityPercent;
+  }, [audioSensitivityPercent]);
+
+  useEffect(() => {
+    audioNoiseActiveRef.current = isAudioNoiseActive;
+
+    if (!isAudioNoiseActive) {
+      audioSampleRef.current = null;
+      audioNoiseRef.current = createAudioNoiseState();
+    }
+  }, [audioSampleRef, isAudioNoiseActive]);
 
   useEffect(() => {
     motionSensitivityRef.current = motionSensitivityPercent;
@@ -282,9 +312,12 @@ export function SimulationCanvas({
     canvas.height = simulationSize.height;
     imageDataRef.current = context.createImageData(simulationSize.width, simulationSize.height);
     stateRef.current = createSimulationState(simulationSize.width, simulationSize.height, seedMode);
+    audioSampleRef.current = null;
+    audioNoiseRef.current = createAudioNoiseState();
     motionSampleRef.current = null;
     motionShakeRef.current = createMotionShakeState();
   }, [
+    audioSampleRef,
     canvasRef,
     motionSampleRef,
     resetKey,
@@ -321,8 +354,24 @@ export function SimulationCanvas({
           applyMotionShakeDisturbance(state, motionShakeRef.current);
         }
 
+        let stepParams = paramsRef.current;
+
+        if (audioNoiseActiveRef.current) {
+          const sample = audioSampleRef.current;
+          audioSampleRef.current = null;
+          audioNoiseRef.current = sample
+            ? updateAudioNoiseState(
+                audioNoiseRef.current,
+                sample,
+                audioSensitivityRef.current,
+              )
+            : settleAudioNoiseState(audioNoiseRef.current);
+          applyAudioNoiseDisturbance(state, audioNoiseRef.current);
+          stepParams = getAudioNoiseModulatedParams(stepParams, audioNoiseRef.current);
+        }
+
         if (!pausedRef.current) {
-          stepSimulation(state, paramsRef.current, STEPS_PER_FRAME);
+          stepSimulation(state, stepParams, STEPS_PER_FRAME);
         }
 
         writePatternImageData(state, imageData, paletteRef.current);

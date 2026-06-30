@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SimulationCanvas } from './components/SimulationCanvas';
 import { patternPresets, defaultPreset } from './presets/presets';
 import {
@@ -10,6 +10,11 @@ import {
   type UserPreset,
 } from './presets/userPresets';
 import { FEED_RANGE, KILL_RANGE, generateRandomParams, withFeedKill } from './simulation/random';
+import {
+  AUDIO_NOISE_SENSITIVITY_RANGE,
+  createAudioNoiseSample,
+  type AudioNoiseSample,
+} from './simulation/audioNoise';
 import {
   getFullscreenSimulationSize,
   getScaledSimulationSize,
@@ -34,9 +39,25 @@ const APP_CANVAS_VIEW_QUERY = '(max-width: 820px), (pointer: coarse)';
 const FINE_TUNE_STEP = 0.0001;
 
 type MotionShakeStatus = 'unavailable' | 'idle' | 'active' | 'denied';
+type AudioNoiseStatus = 'unavailable' | 'ready' | 'active' | 'stopped' | 'blocked';
 
 type DeviceMotionEventWithPermission = typeof DeviceMotionEvent & {
   requestPermission?: () => Promise<PermissionState>;
+};
+
+type AudioContextConstructor = typeof AudioContext;
+type WindowWithWebkitAudioContext = Window &
+  typeof globalThis & {
+    webkitAudioContext?: AudioContextConstructor;
+  };
+
+type AudioNoiseSession = {
+  audioContext: AudioContext;
+  analyser: AnalyserNode;
+  source: MediaStreamAudioSourceNode;
+  stream: MediaStream;
+  frequencyData: Uint8Array<ArrayBuffer>;
+  animationFrame: number;
 };
 
 const MOTION_SHAKE_STATUS_LABEL: Record<MotionShakeStatus, string> = {
@@ -44,6 +65,14 @@ const MOTION_SHAKE_STATUS_LABEL: Record<MotionShakeStatus, string> = {
   idle: 'Off',
   active: 'On',
   denied: 'Blocked',
+};
+
+const AUDIO_NOISE_STATUS_LABEL: Record<AudioNoiseStatus, string> = {
+  unavailable: 'Unavailable',
+  ready: 'Ready',
+  active: 'Active',
+  stopped: 'Stopped',
+  blocked: 'Blocked',
 };
 
 function shouldUseAppCanvasView() {
@@ -76,6 +105,23 @@ function getDeviceMotionEventConstructor() {
   return window.DeviceMotionEvent as DeviceMotionEventWithPermission;
 }
 
+function getAudioContextConstructor(): AudioContextConstructor | null {
+  if (typeof window.AudioContext !== 'undefined') {
+    return window.AudioContext;
+  }
+
+  const webkitAudioContext = (window as WindowWithWebkitAudioContext).webkitAudioContext;
+
+  return typeof webkitAudioContext === 'undefined' ? null : webkitAudioContext;
+}
+
+function supportsAudioNoise() {
+  return (
+    getAudioContextConstructor() !== null &&
+    typeof navigator.mediaDevices?.getUserMedia === 'function'
+  );
+}
+
 function getMotionEventSample(event: DeviceMotionEvent): MotionShakeSample | null {
   const acceleration = event.acceleration;
   const accelerationIncludingGravity = event.accelerationIncludingGravity;
@@ -103,6 +149,9 @@ function getMotionEventSample(event: DeviceMotionEvent): MotionShakeSample | nul
 function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const motionSampleRef = useRef<MotionShakeSample | null>(null);
+  const audioSampleRef = useRef<AudioNoiseSample | null>(null);
+  const audioSessionRef = useRef<AudioNoiseSession | null>(null);
+  const isAudioStartingRef = useRef(false);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(defaultPreset.id);
   const [userPresets, setUserPresets] = useState<UserPreset[]>(() => loadUserPresets());
   const [params, setParams] = useState<ReactionDiffusionParams>(defaultPreset.params);
@@ -121,6 +170,10 @@ function App() {
     useState<MotionShakeStatus>('unavailable');
   const [isMotionControlVisible, setIsMotionControlVisible] = useState(false);
   const [motionSensitivityPercent, setMotionSensitivityPercent] = useState(100);
+  const [audioNoiseStatus, setAudioNoiseStatus] =
+    useState<AudioNoiseStatus>('unavailable');
+  const [isAudioControlVisible, setIsAudioControlVisible] = useState(false);
+  const [audioSensitivityPercent, setAudioSensitivityPercent] = useState(100);
 
   const selectablePresets = useMemo(
     () => [...patternPresets, ...userPresets],
@@ -141,6 +194,54 @@ function App() {
     () => getScaledSimulationSize(baseSimulationSize, scalePercent),
     [baseSimulationSize, scalePercent],
   );
+
+  const stopAudioSession = useCallback(() => {
+    const session = audioSessionRef.current;
+
+    if (!session) {
+      audioSampleRef.current = null;
+      return;
+    }
+
+    window.cancelAnimationFrame(session.animationFrame);
+    session.source.disconnect();
+    session.analyser.disconnect();
+    session.stream.getTracks().forEach((track) => track.stop());
+    void session.audioContext.close().catch(() => {
+      // The browser may already have closed the context during page lifecycle changes.
+    });
+    audioSessionRef.current = null;
+    audioSampleRef.current = null;
+  }, []);
+
+  const stopAudioNoise = useCallback(
+    (nextStatus: AudioNoiseStatus = 'stopped') => {
+      stopAudioSession();
+      setAudioNoiseStatus(nextStatus);
+    },
+    [stopAudioSession],
+  );
+
+  const startAudioNoiseSampling = useCallback((session: AudioNoiseSession) => {
+    const sampleRate = session.audioContext.sampleRate;
+    const fftSize = session.analyser.fftSize;
+
+    const readSample = () => {
+      if (audioSessionRef.current !== session) {
+        return;
+      }
+
+      session.analyser.getByteFrequencyData(session.frequencyData);
+      audioSampleRef.current = createAudioNoiseSample(
+        session.frequencyData,
+        sampleRate,
+        fftSize,
+      );
+      session.animationFrame = window.requestAnimationFrame(readSample);
+    };
+
+    readSample();
+  }, []);
 
   useEffect(() => {
     const syncFullscreenState = () => {
@@ -254,6 +355,75 @@ function App() {
       motionMedia.removeListener(syncMotionAvailability);
     };
   }, []);
+
+  useEffect(() => {
+    const audioMedia = window.matchMedia(APP_CANVAS_VIEW_QUERY);
+
+    const syncAudioAvailability = () => {
+      const isVisible = audioMedia.matches;
+      const supportsAudio = supportsAudioNoise();
+
+      setIsAudioControlVisible(isVisible);
+
+      if (!isVisible || !supportsAudio) {
+        stopAudioSession();
+        setAudioNoiseStatus('unavailable');
+        return;
+      }
+
+      setAudioNoiseStatus((current) => {
+        if (current === 'active' || current === 'blocked' || current === 'stopped') {
+          return current;
+        }
+
+        return 'ready';
+      });
+    };
+
+    syncAudioAvailability();
+
+    if (typeof audioMedia.addEventListener === 'function') {
+      audioMedia.addEventListener('change', syncAudioAvailability);
+
+      return () => {
+        audioMedia.removeEventListener('change', syncAudioAvailability);
+      };
+    }
+
+    audioMedia.addListener(syncAudioAvailability);
+
+    return () => {
+      audioMedia.removeListener(syncAudioAvailability);
+    };
+  }, [stopAudioSession]);
+
+  useEffect(() => {
+    const stopForBackground = () => {
+      if (audioSessionRef.current) {
+        stopAudioNoise('stopped');
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopForBackground();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', stopForBackground);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', stopForBackground);
+    };
+  }, [stopAudioNoise]);
+
+  useEffect(() => {
+    return () => {
+      stopAudioSession();
+    };
+  }, [stopAudioSession]);
 
   useEffect(() => {
     if (motionShakeStatus !== 'active') {
@@ -394,6 +564,84 @@ function App() {
     setMotionSensitivityPercent(sensitivityPercent);
   };
 
+  const handleAudioNoiseToggle = async () => {
+    if (audioNoiseStatus === 'active') {
+      stopAudioNoise('stopped');
+      return;
+    }
+
+    if (isAudioStartingRef.current) {
+      return;
+    }
+
+    if (!isAudioControlVisible) {
+      return;
+    }
+
+    const AudioContextConstructor = getAudioContextConstructor();
+
+    if (!AudioContextConstructor || !navigator.mediaDevices?.getUserMedia) {
+      setAudioNoiseStatus('unavailable');
+      return;
+    }
+
+    let stream: MediaStream | null = null;
+    let audioContext: AudioContext | null = null;
+
+    try {
+      isAudioStartingRef.current = true;
+      stopAudioSession();
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioContext = new AudioContextConstructor();
+      const analyser = audioContext.createAnalyser();
+      const source = audioContext.createMediaStreamSource(stream);
+
+      analyser.fftSize = 1024;
+      analyser.smoothingTimeConstant = 0.72;
+      source.connect(analyser);
+
+      if (audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
+
+      if (document.hidden) {
+        source.disconnect();
+        analyser.disconnect();
+        stream.getTracks().forEach((track) => track.stop());
+        void audioContext.close();
+        setAudioNoiseStatus('stopped');
+        return;
+      }
+
+      const session: AudioNoiseSession = {
+        audioContext,
+        analyser,
+        source,
+        stream,
+        frequencyData: new Uint8Array(analyser.frequencyBinCount),
+        animationFrame: 0,
+      };
+
+      audioSessionRef.current = session;
+      startAudioNoiseSampling(session);
+      setAudioNoiseStatus('active');
+    } catch {
+      stream?.getTracks().forEach((track) => track.stop());
+      void audioContext?.close().catch(() => {
+        // Ignore cleanup failures after a denied or interrupted permission request.
+      });
+      audioSampleRef.current = null;
+      audioSessionRef.current = null;
+      setAudioNoiseStatus('blocked');
+    } finally {
+      isAudioStartingRef.current = false;
+    }
+  };
+
+  const handleAudioSensitivityChange = (sensitivityPercent: number) => {
+    setAudioSensitivityPercent(sensitivityPercent);
+  };
+
   const handleRandomize = () => {
     const randomPattern = generateRandomParams();
     setSelectedPresetId(null);
@@ -496,6 +744,7 @@ function App() {
 
   const isPresentationView = isFullscreen || isCanvasView;
   const isMotionShakeActive = motionShakeStatus === 'active';
+  const isAudioNoiseActive = audioNoiseStatus === 'active';
   const isDefaultPalette = isDefaultPatternPalette(patternPalette);
 
   return (
@@ -521,6 +770,9 @@ function App() {
             scalePercent={scalePercent}
             seedMode={seedMode}
             simulationSize={simulationSize}
+            isAudioNoiseActive={isAudioNoiseActive}
+            audioSampleRef={audioSampleRef}
+            audioSensitivityPercent={audioSensitivityPercent}
             isMotionShakeActive={isMotionShakeActive}
             motionSampleRef={motionSampleRef}
             motionSensitivityPercent={motionSensitivityPercent}
@@ -769,6 +1021,46 @@ function App() {
                     handleMotionSensitivityChange(Number(event.target.value))
                   }
                   aria-label="Phone motion sensitivity"
+                />
+              </label>
+            </div>
+          )}
+
+          {isAudioControlVisible && (
+            <div className="motion-control" aria-label="Audio noise pattern disturbance">
+              <span className="motion-control__label">
+                Audio noise{' '}
+                <strong aria-live="polite">
+                  {AUDIO_NOISE_STATUS_LABEL[audioNoiseStatus]}
+                </strong>
+              </span>
+              <button
+                type="button"
+                onClick={handleAudioNoiseToggle}
+                disabled={audioNoiseStatus === 'unavailable'}
+                aria-pressed={isAudioNoiseActive}
+                aria-label={
+                  isAudioNoiseActive
+                    ? 'Disable audio noise pattern disturbance'
+                    : 'Enable audio noise pattern disturbance'
+                }
+              >
+                {isAudioNoiseActive ? 'Stop Audio' : 'Enable Audio'}
+              </button>
+              <label className="motion-sensitivity">
+                <span>
+                  Sensitivity <strong>{audioSensitivityPercent}%</strong>
+                </span>
+                <input
+                  type="range"
+                  min={AUDIO_NOISE_SENSITIVITY_RANGE.min}
+                  max={AUDIO_NOISE_SENSITIVITY_RANGE.max}
+                  step={AUDIO_NOISE_SENSITIVITY_RANGE.step}
+                  value={audioSensitivityPercent}
+                  onChange={(event) =>
+                    handleAudioSensitivityChange(Number(event.target.value))
+                  }
+                  aria-label="Audio noise sensitivity"
                 />
               </label>
             </div>

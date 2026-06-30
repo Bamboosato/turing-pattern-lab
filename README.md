@@ -26,6 +26,8 @@ Core features:
 - Tap and drag gesture injection on the Canvas
 - Phone motion pattern disturbance on supported mobile browsers
 - Phone motion sensitivity control from 50% to 200%
+- Audio noise pattern disturbance on supported mobile browsers
+- Audio noise sensitivity control from 50% to 200%
 - Background and material color controls
 - Responsive layout for desktop and mobile
 
@@ -58,7 +60,7 @@ npm run test
 
 ## Current MVP
 
-The current implementation includes a Gray-Scott Canvas simulation, five natural-pattern presets, local user preset saving with current seed, colors, and scale, Feed/Kill sliders, a Seed initial-pattern selector, 50%-200% simulation scale control, background/material color controls, random generation, pause/resume, PNG export, tap and drag gesture injection, phone motion pattern disturbance with sensitivity control on supported mobile browsers, an edge-to-edge mobile Canvas View with safe-area-aware controls, a responsive layout, a short educational explanation, and the normal-screen version footer.
+The current implementation includes a Gray-Scott Canvas simulation, five natural-pattern presets, local user preset saving with current seed, colors, and scale, Feed/Kill sliders, a Seed initial-pattern selector, 50%-200% simulation scale control, background/material color controls, random generation, pause/resume, PNG export, tap and drag gesture injection, phone motion pattern disturbance with sensitivity control on supported mobile browsers, audio noise disturbance using microphone volume plus low/mid/high frequency bands on supported mobile browsers, microphone release when the page moves to the background, an edge-to-edge mobile Canvas View with safe-area-aware controls, a responsive layout, a short educational explanation, and the normal-screen version footer.
 
 ## Documentation
 
