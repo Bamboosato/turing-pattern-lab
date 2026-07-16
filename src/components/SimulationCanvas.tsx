@@ -53,6 +53,8 @@ type SimulationCanvasProps = {
   scalePercent: number;
   seedMode: SeedMode;
   simulationSize: SimulationSize;
+  eyeClosedRef?: RefObject<boolean>;
+  stimulusRef?: RefObject<{ x: number; y: number; strength: number } | null>;
 };
 
 export function SimulationCanvas({
@@ -70,6 +72,8 @@ export function SimulationCanvas({
   scalePercent,
   seedMode,
   simulationSize,
+  eyeClosedRef,
+  stimulusRef,
 }: SimulationCanvasProps) {
   const paramsRef = useRef(params);
   const pausedRef = useRef(isPaused);
@@ -336,11 +340,16 @@ export function SimulationCanvas({
 
     let animationFrame = 0;
 
-    const tick = () => {
+    const tick = (time: number) => {
       const state = stateRef.current;
       const imageData = imageDataRef.current;
 
-      if (state && imageData) {
+        if (state && imageData) {
+        const stimulus = stimulusRef?.current;
+        if (stimulus) {
+          injectActivator(state, stimulus.x * state.width, stimulus.y * state.height, { radius: Math.max(4, state.width * 0.04), strength: stimulus.strength });
+          stimulusRef.current = null;
+        }
         if (motionShakeActiveRef.current) {
           const sample = motionSampleRef.current;
           motionSampleRef.current = null;
@@ -370,7 +379,7 @@ export function SimulationCanvas({
           stepParams = getAudioNoiseModulatedParams(stepParams, audioNoiseRef.current);
         }
 
-        if (!pausedRef.current) {
+        if (!pausedRef.current && !eyeClosedRef?.current) {
           stepSimulation(state, stepParams, STEPS_PER_FRAME);
         }
 
@@ -381,7 +390,7 @@ export function SimulationCanvas({
       animationFrame = requestAnimationFrame(tick);
     };
 
-    tick();
+    tick(performance.now());
 
     return () => {
       cancelAnimationFrame(animationFrame);
