@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SimulationCanvas } from './components/SimulationCanvas';
+import { FaceInteractionPanel } from './components/FaceInteractionPanel';
+import type { EyeEvent } from './simulation/faceInteraction';
 import { patternPresets, defaultPreset } from './presets/presets';
 import {
   createUserPreset,
@@ -151,6 +153,8 @@ function App() {
   const motionSampleRef = useRef<MotionShakeSample | null>(null);
   const audioSampleRef = useRef<AudioNoiseSample | null>(null);
   const audioSessionRef = useRef<AudioNoiseSession | null>(null);
+  const eyeClosedRef = useRef(false);
+  const stimulusRef = useRef<{ x: number; y: number; strength: number } | null>(null);
   const isAudioStartingRef = useRef(false);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(defaultPreset.id);
   const [userPresets, setUserPresets] = useState<UserPreset[]>(() => loadUserPresets());
@@ -770,6 +774,8 @@ function App() {
             scalePercent={scalePercent}
             seedMode={seedMode}
             simulationSize={simulationSize}
+            eyeClosedRef={eyeClosedRef}
+            stimulusRef={stimulusRef}
             isAudioNoiseActive={isAudioNoiseActive}
             audioSampleRef={audioSampleRef}
             audioSensitivityPercent={audioSensitivityPercent}
@@ -1065,6 +1071,18 @@ function App() {
               </label>
             </div>
           )}
+
+          <FaceInteractionPanel
+            onEyeClosedChange={(closed) => {
+              eyeClosedRef.current = closed;
+            }}
+            onEyeEvent={(event: EyeEvent, position) => {
+              stimulusRef.current = {
+                ...position,
+                strength: event === 'longClose' ? 0.95 : 0.58,
+              };
+            }}
+          />
 
           <div className="button-row">
             <button type="button" onClick={() => setIsPaused((current) => !current)}>
