@@ -185,7 +185,9 @@ Canvasをタップまたはドラッグした地点に促進物質を注入し�
 - ドラッグした線に沿って連続的に促進物質を注入する
 - Feed / Kill の値は変更しない
 - 通常表示、Fullscreen、スマートフォン向けCanvasビューで同じ操作ができる
-- スマートフォン向けCanvasビューでは描画領域をsafe area外まで広げ、Exitなどの操作UIはsafe area内に配置する
+- Fullscreen操作では、対応環境はCanvas stage全体をFullscreen APIの対象とし、CanvasとExit操作を同じFullscreen領域に含める
+- Fullscreen APIが非対応または拒否された場合は、スマートフォン向けCanvasビューへフォールバックする
+- Native FullscreenおよびCanvasビューでは描画領域をsafe area／ディスプレイカットアウトの背面まで広げ、Exitなどの操作UIはsafe area内に配置する
 - ブラシ半径は100%スケール時に初期実装の約80%とし、Canvas内部解像度スケールが大きいほど表示上は小さくなる
 
 ## F-10 スマートフォンモーション攪拌

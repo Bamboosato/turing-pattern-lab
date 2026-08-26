@@ -150,6 +150,7 @@ function getMotionEventSample(event: DeviceMotionEvent): MotionShakeSample | nul
 
 function App() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const canvasStageRef = useRef<HTMLDivElement | null>(null);
   const motionSampleRef = useRef<MotionShakeSample | null>(null);
   const audioSampleRef = useRef<AudioNoiseSample | null>(null);
   const audioSessionRef = useRef<AudioNoiseSession | null>(null);
@@ -250,8 +251,11 @@ function App() {
   useEffect(() => {
     const syncFullscreenState = () => {
       const canvas = canvasRef.current;
-      const canvasIsFullscreen = Boolean(canvas && document.fullscreenElement === canvas);
-      const shouldUseViewportSize = canvasIsFullscreen || isCanvasView;
+      const canvasStage = canvasStageRef.current;
+      const canvasStageIsFullscreen = Boolean(
+        canvasStage && document.fullscreenElement === canvasStage,
+      );
+      const shouldUseViewportSize = canvasStageIsFullscreen || isCanvasView;
       const viewportSize = shouldUseViewportSize
         ? getPresentationViewportSize(canvas)
         : NORMAL_SIMULATION_SIZE;
@@ -259,7 +263,7 @@ function App() {
         ? getFullscreenSimulationSize(viewportSize.width, viewportSize.height)
         : NORMAL_SIMULATION_SIZE;
 
-      setIsFullscreen(canvasIsFullscreen);
+      setIsFullscreen(canvasStageIsFullscreen);
       setCanFullscreen(Boolean(canvas));
       setBaseSimulationSize((current) =>
         current.width === nextBaseSimulationSize.width &&
@@ -709,9 +713,9 @@ function App() {
   };
 
   const handleExitPresentationView = async () => {
-    const canvas = canvasRef.current;
+    const canvasStage = canvasStageRef.current;
 
-    if (document.fullscreenElement === canvas && document.exitFullscreen) {
+    if (document.fullscreenElement === canvasStage && document.exitFullscreen) {
       try {
         await document.exitFullscreen();
       } catch {
@@ -724,23 +728,24 @@ function App() {
 
   const handleFullscreen = async () => {
     const canvas = canvasRef.current;
+    const canvasStage = canvasStageRef.current;
 
-    if (!canvas) {
+    if (!canvas || !canvasStage) {
       return;
     }
 
-    if (document.fullscreenElement === canvas || isCanvasView) {
+    if (document.fullscreenElement === canvasStage || isCanvasView) {
       await handleExitPresentationView();
       return;
     }
 
-    if (shouldUseAppCanvasView() || !canvas.requestFullscreen) {
+    if (!canvasStage.requestFullscreen) {
       setIsCanvasView(true);
       return;
     }
 
     try {
-      await canvas.requestFullscreen();
+      await canvasStage.requestFullscreen();
     } catch {
       setIsCanvasView(true);
     }
@@ -765,7 +770,10 @@ function App() {
       </section>
 
       <section className="workspace" aria-label="Interactive Turing pattern simulator">
-        <div className={isCanvasView ? 'canvas-stage canvas-stage--immersive' : 'canvas-stage'}>
+        <div
+          ref={canvasStageRef}
+          className={isCanvasView ? 'canvas-stage canvas-stage--immersive' : 'canvas-stage'}
+        >
           <SimulationCanvas
             canvasRef={canvasRef}
             params={params}
@@ -784,7 +792,7 @@ function App() {
             motionSensitivityPercent={motionSensitivityPercent}
             palette={patternPalette}
           />
-          {isCanvasView && (
+          {isPresentationView && (
             <button
               type="button"
               className="canvas-view-exit"

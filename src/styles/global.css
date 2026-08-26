@@ -184,6 +184,24 @@ h2 {
   place-items: stretch;
 }
 
+.canvas-stage:fullscreen,
+.canvas-stage:-webkit-full-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  width: 100vw;
+  width: 100dvw;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 0;
+  border: 0;
+  background: #101014;
+  box-shadow: none;
+  place-items: stretch;
+}
+
 .simulation-canvas {
   display: block;
   width: min(100%, 720px);
@@ -215,6 +233,8 @@ h2 {
   background: #101014;
 }
 
+.canvas-stage:fullscreen .simulation-canvas,
+.canvas-stage:-webkit-full-screen .simulation-canvas,
 .canvas-stage--immersive .simulation-canvas {
   width: 100vw;
   width: 100dvw;
