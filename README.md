@@ -8,29 +8,45 @@ The app is intended as a lightweight science-art and mathematical visualization 
 
 Natural patterns such as animal markings, fish spots, shell patterns, and organic textures can emerge from local interactions and diffusion. This project visualizes that idea through an interactive browser-based simulator.
 
-## MVP Scope
+## Implemented Features
 
-The MVP focuses on making the experience immediately visual and enjoyable.
+The current app uses a Gray-Scott simulation and starts automatically with the Zebra preset.
 
-Core features:
+| Control | Behavior |
+| --- | --- |
+| Preset | Zebra, Giraffe, Leopard, Coral, Maze, and locally saved presets. Selecting one restarts the pattern with its parameters and Seed. |
+| Feed / Kill | Feed: 0.0120–0.0700; Kill: 0.0450–0.0720. Sliders and +/- buttons adjust values in steps of 0.0001 without restarting the pattern. |
+| Seed | Center, Stripe, Spots, Web, or Noise. Changes the initial chemical layout and restarts with the current parameters. This is not a reproducible numeric random seed. |
+| Scale | Internal simulation resolution from 50% to 200%, in steps of 10%. Normal view is 224 × 224 cells at 100%. Changing resolution restarts the pattern. |
+| Background / Material | Change the two rendering colors without restarting. Reset Colors restores `#e6b01a` / `#2edeef`. |
+| Random | Selects new Feed/Kill values and an initial layout, then restarts. Candidates are screened for early pattern activity; long-term activity is not guaranteed. |
+| Restart | Recreates the initial layout with the current parameters, colors, and scale. Randomized layouts may differ on each restart. |
+| Pause / Resume | Stops/resumes reaction-diffusion steps. Drawing and enabled sensor disturbances can still change the Canvas while paused. |
+| Save Preset / Delete Preset | Save current settings under a chosen name, or delete the selected user preset after confirmation. |
+| Save PNG | Downloads the current Canvas, including selected colors and disturbances, as `turing-pattern.png` at its internal resolution. |
+| Fullscreen | Uses the native Fullscreen API for the Canvas stage. If unavailable or rejected, opens an in-page Canvas View. Use Exit to return; Escape also exits Canvas View. |
 
-- Real-time Turing pattern generation
-- Preset pattern selection
-- Save and delete local user presets with seed, colors, and scale
-- Feed and Kill parameter sliders
-- Seed initial-pattern selector
-- Simulation scale slider from 50% to 200%
-- Random pattern generation
-- Pause and resume
-- PNG export
-- Tap and drag gesture injection on the Canvas
-- Phone motion pattern disturbance on supported mobile browsers
-- Phone motion sensitivity control from 50% to 200%
-- Audio noise pattern disturbance on supported mobile browsers
-- Audio noise sensitivity control from 50% to 200%
-- Optional camera-based face interaction using MediaPipe Face Landmarker
-- Background and material color controls
-- Responsive layout for desktop and mobile
+Tap or drag on the Canvas to inject chemical B locally. Normal view, native fullscreen, and Canvas View support the same gesture. Presentation views extend the Canvas behind display cutouts while keeping Exit within the safe area. Entering/exiting presentation view or resizing it can change the simulation dimensions and restart the pattern.
+
+The layout places the Canvas above the controls at widths of 820px or less. A short explanation and the `© 2026 Bamboosato  v1.0.0` footer appear in normal view.
+
+## Optional Sensor Inputs
+
+- **Phone motion:** Enable Shake / Stop Shake toggles disturbance from device motion. Sensitivity is 50%–200% in steps of 10%, initially 100%.
+- **Audio noise:** Enable Audio / Stop Audio uses microphone volume and low/mid/high frequency energy to disturb the simulation. Mid-band energy temporarily modulates simulation parameters without changing the Feed/Kill controls. Sensitivity is 50%–200% in steps of 10%, initially 100%. Going to the background stops the microphone; enable it again manually after returning.
+- **Eye interaction:** Start Camera / Stop Camera enables MediaPipe Face Landmarker for one face. Head direction and eye-local iris movement are combined into five directions with an automatic baseline. Reopening after a blink injects a stimulus in that direction; reopening after at least 1200ms of eye closure injects a stronger stimulus. Closed eyes stop reaction-diffusion steps independently of the Pause button.
+
+Phone motion and Audio noise controls appear only when the relevant APIs exist and the viewport is at most 820px wide or the pointer is coarse. Eye interaction is available in the normal control panel on desktop and mobile. Sensor permissions are requested after a button action. Camera and microphone use require a secure context such as HTTPS or localhost.
+
+Camera frames and microphone recordings are not stored or uploaded by the app. Camera startup downloads the Face Landmarker model from Google storage and WASM from jsDelivr, so it needs network access. The simulation itself uses Canvas 2D; Face Landmarker requests its GPU delegate.
+
+## Local Preset Storage
+
+Presets use this browser's localStorage (`turing-pattern-lab:user-presets:v1`). They contain Feed/Kill, diffusion coefficients, Seed layout, background/material colors, and Scale, with a name and creation time. They do not contain the current chemical field, exact randomized layout, pause state, fullscreen state, or sensor permissions, enabled states, and sensitivities.
+
+Only the latest 30 valid presets are persisted, although the current session can show more. Names are trimmed, whitespace-normalized, and limited to 40 characters. Older presets without colors or Scale remain usable; selecting them keeps the current colors or Scale. Built-in presets also keep the current colors and Scale.
+
+Storage is specific to the browser and site origin. Clearing site data removes presets. Storage failures do not stop the simulation, but changes may not survive a reload and the current UI does not report storage failures. There is no preset sync, import, or export.
 
 ## Tech Stack
 
@@ -38,9 +54,13 @@ Core features:
 - TypeScript
 - Vite
 - HTML Canvas
+- MediaPipe Tasks Vision (optional face input)
+- Vitest
 - Client-side only architecture
 
 ## Getting Started
+
+Use Node.js 20.19+ within the 20.x series, or 22.12+ (the requirement of the locked Vite version), and npm.
 
 ```bash
 npm install
@@ -53,19 +73,32 @@ Build the production bundle:
 npm run build
 ```
 
-Run the focused unit tests:
+Preview the production bundle after building:
+
+```bash
+npm run preview
+```
+
+Run the unit tests:
 
 ```bash
 npm run test
 ```
 
-## Current MVP
+`npm run build` runs TypeScript checking before Vite bundling. Unit tests cover presets and early pattern activity, random candidates, storage parsing, colors/render mapping, simulation sizes, brush injection, motion/audio disturbance, and face/eye decision logic. They do not verify browser permissions, real camera accuracy, fullscreen behavior, PNG downloads, or device performance. No browser E2E script or GitHub Actions workflow is currently checked in.
 
-The current implementation includes a Gray-Scott Canvas simulation, five natural-pattern presets, local user preset saving with current seed, colors, and scale, Feed/Kill sliders, a Seed initial-pattern selector, 50%-200% simulation scale control, background/material color controls, random generation, pause/resume, PNG export, tap and drag gesture injection, optional camera-based face interaction that combines face direction and iris movement without manual calibration, phone motion pattern disturbance with sensitivity control on supported mobile browsers, audio noise disturbance using microphone volume plus low/mid/high frequency bands on supported mobile browsers, microphone release when the page moves to the background, Native Fullscreen API presentation with an edge-to-edge mobile Canvas View fallback and safe-area-aware controls, a responsive layout, a short educational explanation, and the normal-screen version footer.
+## Limitations
+
+Performance depends on resolution, device, and optional camera processing. The simulation runs three steps per animation frame on the main thread; there is no automatic frame-rate adaptation or guaranteed FPS. Reduce Scale if needed. The app is a static client-side app without authentication, a database, or server APIs. It has icons and a web manifest, but no service worker or guaranteed offline camera support.
+
+Eye interaction still has lifecycle gaps: camera background/pagehide cleanup, startup cancellation, resetting closed-eye state on stop or face loss, and a face-loss timeout are not implemented. These are documented separately from the completed behavior in the [face interaction design](docs/face-interaction-design.md#8-残っている設計課題). Stop Camera explicitly when finished; if closed-eye state remains after stopping, reloading resets it. Camera permissions and accuracy still need real-device verification.
+
+The footer version is currently a fixed UI string (`v1.0.0`); `package.json` still declares `0.1.0`. They are not automatically synchronized.
 
 ## Documentation
 
 - [Requirements](docs/requirements.md)
+- [Face interaction design and remaining work](docs/face-interaction-design.md)
 - [Codex development instructions](AGENTS.md)
 
 ## Repository
